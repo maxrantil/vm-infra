@@ -1,0 +1,13 @@
+# Example Terraform variables
+# Copy this to terraform.tfvars and customize
+
+vm_name = "my-dev-vm"
+memory = 4096          # MB
+vcpus = 2
+disk_size = 21474836480  # 20GB in bytes
+
+# Optional: override SSH key location
+# ssh_public_key_file = "~/.ssh/custom_key.pub"
+
+# Optional: provide SSH key directly
+# ssh_public_key = "ssh-ed25519 AAAA... your-key"
