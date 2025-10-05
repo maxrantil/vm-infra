@@ -19,7 +19,39 @@ This infrastructure automates the setup of Ubuntu 24.04 VMs with:
   - `vm_key` - For SSH access to VMs
   - `id_ed25519` - Your GitHub key (for git clones on VMs)
 
-## Setup
+## Quick Start
+
+### One-Command Provisioning
+
+```bash
+# Clone the repository
+git clone https://github.com/maxrantil/vm-infra.git
+cd vm-infra
+
+# Generate SSH keys (if needed)
+ssh-keygen -t ed25519 -f ~/.ssh/vm_key -C "vm-access"
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -C "your-email@example.com"
+
+# Provision a VM
+./provision-vm.sh my-vm-name
+
+# Or with custom resources
+./provision-vm.sh my-vm 8192 4  # 8GB RAM, 4 vCPUs
+```
+
+That's it! The script will:
+1. Create the VM with Terraform
+2. Wait for cloud-init to complete
+3. Run Ansible playbook
+4. Display SSH connection info
+
+### Destroy a VM
+
+```bash
+./destroy-vm.sh my-vm-name
+```
+
+## Manual Setup
 
 ### 1. Install Dependencies
 
