@@ -1,0 +1,47 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ansible
+*.retry
+*.log
+
+# SSH Keys (never commit private keys!)
+*.pem
+*.key
+*_rsa
+*_ed25519
+id_rsa*
+id_ecdsa*
+id_ed25519*
+!*.pub  # Allow public keys
+
+# Cloud-init sensitive data
+# user-data.yaml will be tracked but sanitized
+
+# OS
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Environment
+.env
+.env.local
+secrets.yml
+secrets.yaml
