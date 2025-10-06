@@ -31,24 +31,33 @@ echo ""
 
 # Check prerequisites
 echo -e "${YELLOW}Checking prerequisites...${NC}"
-command -v terraform >/dev/null 2>&1 || { echo -e "${RED}Error: terraform not found${NC}"; exit 1; }
-command -v ansible-playbook >/dev/null 2>&1 || { echo -e "${RED}Error: ansible-playbook not found${NC}"; exit 1; }
-command -v virsh >/dev/null 2>&1 || { echo -e "${RED}Error: virsh not found${NC}"; exit 1; }
 
-# Check SSH keys
+# Check for required SSH keys
 if [ ! -f "$HOME/.ssh/vm_key" ]; then
-    echo -e "${RED}Error: SSH key not found at ~/.ssh/vm_key${NC}"
-    echo "Run: ssh-keygen -t ed25519 -f ~/.ssh/vm_key -C 'vm-access'"
+    echo -e "${RED}[ERROR] VM access key not found: ~/.ssh/vm_key${NC}" >&2
+    echo "" >&2
+    echo "Generate with:" >&2
+    echo "  ssh-keygen -t ed25519 -f ~/.ssh/vm_key -C 'vm-access'" >&2
     exit 1
 fi
 
 if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
-    echo -e "${RED}Error: GitHub SSH key not found at ~/.ssh/id_ed25519${NC}"
-    echo "Run: ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -C 'your-email@example.com'"
+    echo -e "${RED}[ERROR] GitHub key not found: ~/.ssh/id_ed25519${NC}" >&2
+    echo "" >&2
+    echo "Generate with:" >&2
+    echo "  ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -C 'your-email@example.com'" >&2
     exit 1
 fi
 
-echo -e "${GREEN}✓ All prerequisites met${NC}"
+# Check for required tools
+for cmd in terraform ansible-playbook virsh ssh; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo -e "${RED}[ERROR] Required tool not found: $cmd${NC}" >&2
+        exit 1
+    fi
+done
+
+echo -e "${GREEN}[OK] Prerequisites verified${NC}"
 echo ""
 
 # Step 1: Terraform
