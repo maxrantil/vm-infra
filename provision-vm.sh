@@ -36,7 +36,7 @@ validate_ssh_directory_permissions() {
     ssh_dir_perms=$(stat -c "%a" "$ssh_dir" 2>/dev/null || echo "")
 
     if [ -z "$ssh_dir_perms" ]; then
-        echo -e "${RED}[ERROR] SSH directory not found: $ssh_dir${NC}" >&2
+        echo -e "${RED}[ERROR] SSH directory not found${NC}" >&2
         exit 1
     fi
 
@@ -57,7 +57,7 @@ validate_private_key_permissions() {
     if [ "$key_perms" != "600" ] && [ "$key_perms" != "400" ]; then
         echo -e "${RED}[ERROR] Insecure permissions on $key_name: $key_perms${NC}" >&2
         echo "Expected: 600 (read/write for owner only) or 400 (read-only for owner)" >&2
-        echo "Fix with: chmod 600 $key_path" >&2
+        echo "Fix with: chmod 600 <key-path>" >&2
         exit 1
     fi
 }
@@ -67,8 +67,8 @@ validate_key_content() {
     local key_name="$2"
 
     if ! ssh-keygen -l -f "$key_path" >/dev/null 2>&1; then
-        echo -e "${RED}[ERROR] Invalid or corrupt $key_name: $key_path${NC}" >&2
-        echo "Regenerate with: ssh-keygen -t ed25519 -f $key_path -C 'description'" >&2
+        echo -e "${RED}[ERROR] Invalid or corrupt $key_name${NC}" >&2
+        echo "Regenerate with: ssh-keygen -t ed25519 -f <key-path> -C 'description'" >&2
         exit 1
     fi
 }
@@ -79,8 +79,15 @@ validate_public_key_exists() {
     local pub_key_path="${key_path}.pub"
 
     if [ ! -f "$pub_key_path" ]; then
-        echo -e "${RED}[ERROR] Public key missing: $pub_key_path${NC}" >&2
-        echo "Regenerate keypair with: ssh-keygen -t ed25519 -f $key_path -C 'description'" >&2
+        echo -e "${RED}[ERROR] Public key missing for $key_name${NC}" >&2
+        echo "Regenerate keypair with: ssh-keygen -t ed25519 -f <key-path> -C 'description'" >&2
+        exit 1
+    fi
+
+    # Validate public key content format
+    if ! ssh-keygen -l -f "$pub_key_path" >/dev/null 2>&1; then
+        echo -e "${RED}[ERROR] Invalid or corrupt public key for $key_name${NC}" >&2
+        echo "Regenerate keypair with: ssh-keygen -t ed25519 -f <key-path> -C 'description'" >&2
         exit 1
     fi
 }
@@ -93,7 +100,7 @@ validate_ssh_directory_permissions
 
 # Check for required SSH keys
 if [ ! -f "$HOME/.ssh/vm_key" ]; then
-    echo -e "${RED}[ERROR] VM access key not found: ~/.ssh/vm_key${NC}" >&2
+    echo -e "${RED}[ERROR] VM access key not found${NC}" >&2
     echo "" >&2
     echo "Generate with:" >&2
     echo "  ssh-keygen -t ed25519 -f ~/.ssh/vm_key -C 'vm-access'" >&2
@@ -101,7 +108,7 @@ if [ ! -f "$HOME/.ssh/vm_key" ]; then
 fi
 
 if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
-    echo -e "${RED}[ERROR] GitHub key not found: ~/.ssh/id_ed25519${NC}" >&2
+    echo -e "${RED}[ERROR] GitHub key not found${NC}" >&2
     echo "" >&2
     echo "Generate with:" >&2
     echo "  ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -C 'your-email@example.com'" >&2
