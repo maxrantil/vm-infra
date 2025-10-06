@@ -52,3 +52,6 @@ AGENT_FEEDBACK.md
 AGENT_REVIEW.md
 SESSION_HANDOVER.md
 docs/implementation/
+
+# Ansible auto-generated files
+ansible/inventory.ini
