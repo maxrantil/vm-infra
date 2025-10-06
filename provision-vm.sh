@@ -29,8 +29,67 @@ echo "Memory: ${MEMORY}MB"
 echo "vCPUs: $VCPUS"
 echo ""
 
+# SSH validation functions
+validate_ssh_directory_permissions() {
+    local ssh_dir="$HOME/.ssh"
+    local ssh_dir_perms
+    ssh_dir_perms=$(stat -c "%a" "$ssh_dir" 2>/dev/null || echo "")
+
+    if [ -z "$ssh_dir_perms" ]; then
+        echo -e "${RED}[ERROR] SSH directory not found: $ssh_dir${NC}" >&2
+        exit 1
+    fi
+
+    if [ "$ssh_dir_perms" != "700" ]; then
+        echo -e "${YELLOW}[WARNING] Insecure SSH directory permissions: $ssh_dir_perms${NC}" >&2
+        echo "Expected: 700, fixing automatically..." >&2
+        chmod 700 "$ssh_dir"
+        echo -e "${GREEN}[FIXED] SSH directory permissions set to 700${NC}"
+    fi
+}
+
+validate_private_key_permissions() {
+    local key_path="$1"
+    local key_name="$2"
+    local key_perms
+    key_perms=$(stat -c "%a" "$key_path" 2>/dev/null || echo "")
+
+    if [ "$key_perms" != "600" ] && [ "$key_perms" != "400" ]; then
+        echo -e "${RED}[ERROR] Insecure permissions on $key_name: $key_perms${NC}" >&2
+        echo "Expected: 600 (read/write for owner only) or 400 (read-only for owner)" >&2
+        echo "Fix with: chmod 600 $key_path" >&2
+        exit 1
+    fi
+}
+
+validate_key_content() {
+    local key_path="$1"
+    local key_name="$2"
+
+    if ! ssh-keygen -l -f "$key_path" >/dev/null 2>&1; then
+        echo -e "${RED}[ERROR] Invalid or corrupt $key_name: $key_path${NC}" >&2
+        echo "Regenerate with: ssh-keygen -t ed25519 -f $key_path -C 'description'" >&2
+        exit 1
+    fi
+}
+
+validate_public_key_exists() {
+    local key_path="$1"
+    local key_name="$2"
+    local pub_key_path="${key_path}.pub"
+
+    if [ ! -f "$pub_key_path" ]; then
+        echo -e "${RED}[ERROR] Public key missing: $pub_key_path${NC}" >&2
+        echo "Regenerate keypair with: ssh-keygen -t ed25519 -f $key_path -C 'description'" >&2
+        exit 1
+    fi
+}
+
 # Check prerequisites
 echo -e "${YELLOW}Checking prerequisites...${NC}"
+
+# Validate SSH directory permissions
+validate_ssh_directory_permissions
 
 # Check for required SSH keys
 if [ ! -f "$HOME/.ssh/vm_key" ]; then
@@ -48,6 +107,16 @@ if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
     echo "  ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -C 'your-email@example.com'" >&2
     exit 1
 fi
+
+# Validate VM key security
+validate_private_key_permissions "$HOME/.ssh/vm_key" "VM key"
+validate_key_content "$HOME/.ssh/vm_key" "VM key"
+validate_public_key_exists "$HOME/.ssh/vm_key" "VM key"
+
+# Validate GitHub key security
+validate_private_key_permissions "$HOME/.ssh/id_ed25519" "GitHub key"
+validate_key_content "$HOME/.ssh/id_ed25519" "GitHub key"
+validate_public_key_exists "$HOME/.ssh/id_ed25519" "GitHub key"
 
 # Check for required tools
 for cmd in terraform ansible-playbook virsh ssh; do
