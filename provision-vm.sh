@@ -70,10 +70,17 @@ if [ ! -d ".terraform" ]; then
 fi
 
 # Create VM
-terraform apply -auto-approve \
+if ! terraform apply -auto-approve \
     -var="vm_name=$VM_NAME" \
     -var="memory=$MEMORY" \
-    -var="vcpus=$VCPUS"
+    -var="vcpus=$VCPUS"; then
+    echo -e "${RED}[ERROR] Terraform failed to create VM${NC}" >&2
+    echo "" >&2
+    echo "Check terraform logs above for details" >&2
+    exit 1
+fi
+
+echo -e "${GREEN}[SUCCESS] Terraform apply completed${NC}"
 
 # Get VM IP (with retry)
 echo ""
@@ -89,31 +96,71 @@ for _ in {1..10}; do
 done
 
 if [ "$VM_IP" = "pending" ] || [ -z "$VM_IP" ]; then
-    echo -e "${RED}Error: Failed to get VM IP${NC}"
+    echo -e "${RED}[ERROR] Failed to obtain VM IP address${NC}" >&2
+    echo "" >&2
+    echo "Troubleshooting steps:" >&2
+    echo "  1. Check VM exists: virsh list --all" >&2
+    echo "  2. Check network: virsh net-dhcp-leases default" >&2
+    echo "  3. Check terraform state: terraform show" >&2
     exit 1
 fi
 
-echo -e "${GREEN}✓ VM created successfully${NC}"
-echo "IP Address: $VM_IP"
+echo -e "${GREEN}[SUCCESS] VM created with IP: $VM_IP${NC}"
 echo ""
 
 # Step 2: Wait for cloud-init
 echo -e "${YELLOW}Step 2: Waiting for cloud-init to complete...${NC}"
+CLOUD_INIT_SUCCESS=false
 for _ in {1..30}; do
     if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=2 mr@$VM_IP 'cloud-init status --wait' 2>/dev/null; then
+        CLOUD_INIT_SUCCESS=true
         break
     fi
     sleep 2
 done
 
-echo -e "${GREEN}✓ Cloud-init completed${NC}"
+if [ "$CLOUD_INIT_SUCCESS" = false ]; then
+    echo -e "${RED}[ERROR] cloud-init did not complete within 60 seconds${NC}" >&2
+    echo "" >&2
+    echo "VM may still be initializing. Manual steps:" >&2
+    echo "  1. Check VM status: ssh -i ~/.ssh/vm_key mr@$VM_IP 'cloud-init status'" >&2
+    echo "  2. View logs: ssh -i ~/.ssh/vm_key mr@$VM_IP 'cat /var/log/cloud-init.log'" >&2
+    echo "  3. Wait and retry: ./provision-vm.sh $VM_NAME $MEMORY $VCPUS" >&2
+    exit 1
+fi
+
+echo -e "${GREEN}[SUCCESS] Cloud-init completed${NC}"
 echo ""
 
 # Step 3: Ansible provisioning
-echo -e "${YELLOW}Step 3: Provisioning with Ansible...${NC}"
+echo -e "${YELLOW}Step 3: Verifying SSH connectivity...${NC}"
+
+# Verify SSH connectivity before Ansible
+if ! ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=5 mr@"$VM_IP" 'echo ok' >/dev/null 2>&1; then
+    echo -e "${RED}[ERROR] Cannot connect to VM at $VM_IP${NC}" >&2
+    echo "" >&2
+    echo "SSH connectivity test failed. Troubleshooting:" >&2
+    echo "  1. Verify VM is running: virsh list" >&2
+    echo "  2. Test SSH manually: ssh -i ~/.ssh/vm_key mr@$VM_IP" >&2
+    echo "  3. Check cloud-init: ssh -i ~/.ssh/vm_key mr@$VM_IP 'cloud-init status'" >&2
+    exit 1
+fi
+
+echo -e "${GREEN}[SUCCESS] SSH connectivity verified${NC}"
+echo ""
+echo -e "${YELLOW}Step 4: Provisioning with Ansible...${NC}"
 cd "$ANSIBLE_DIR"
 
-ansible-playbook -i inventory.ini playbook.yml
+if ! ansible-playbook -i inventory.ini playbook.yml; then
+    echo "" >&2
+    echo -e "${RED}[ERROR] Ansible provisioning failed${NC}" >&2
+    echo "" >&2
+    echo "VM is accessible but Ansible failed. Check:" >&2
+    echo "  1. Ansible logs above for details" >&2
+    echo "  2. Manual connection: ssh -i ~/.ssh/vm_key mr@$VM_IP" >&2
+    echo "  3. Retry: cd ansible && ansible-playbook -i inventory.ini playbook.yml" >&2
+    exit 1
+fi
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
