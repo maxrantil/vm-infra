@@ -78,7 +78,7 @@ terraform apply -auto-approve \
 # Get VM IP (with retry)
 echo ""
 echo -e "${YELLOW}Waiting for VM IP address...${NC}"
-for i in {1..10}; do
+for _ in {1..10}; do
     VM_IP=$(terraform output -raw vm_ip 2>/dev/null || echo "pending")
     if [ "$VM_IP" != "pending" ] && [ -n "$VM_IP" ]; then
         break
@@ -99,7 +99,7 @@ echo ""
 
 # Step 2: Wait for cloud-init
 echo -e "${YELLOW}Step 2: Waiting for cloud-init to complete...${NC}"
-for i in {1..30}; do
+for _ in {1..30}; do
     if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=2 mr@$VM_IP 'cloud-init status --wait' 2>/dev/null; then
         break
     fi

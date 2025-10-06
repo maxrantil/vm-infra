@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     libvirt = {
-      source = "dmacvicar/libvirt"
+      source  = "dmacvicar/libvirt"
       version = "~> 0.7"
     }
   }
@@ -32,7 +32,7 @@ variable "vcpus" {
 variable "disk_size" {
   description = "Disk size in bytes"
   type        = number
-  default     = 21474836480  # 20GB
+  default     = 21474836480 # 20GB
 }
 
 variable "ssh_public_key" {
