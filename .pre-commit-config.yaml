@@ -1,0 +1,79 @@
+# Pre-commit hooks for vm-infra project
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+# Docs: https://pre-commit.com/
+
+repos:
+  # General security and quality checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Security checks
+      - id: detect-private-key
+        name: Detect private keys
+        description: Prevent committing private SSH keys, API keys
+
+      - id: check-added-large-files
+        name: Check for large files
+        description: Prevent committing large binary files
+        args: ['--maxkb=1000']
+
+      # File quality
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        description: Remove trailing whitespace from all files
+
+      - id: end-of-file-fixer
+        name: Fix end of files
+        description: Ensure files end with newline
+
+      - id: check-yaml
+        name: Check YAML syntax
+        description: Validate YAML files are parseable
+        exclude: ^ansible/inventory\.ini$
+
+      - id: check-json
+        name: Check JSON syntax
+        description: Validate JSON files are parseable
+
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+        description: Detect merge conflict markers
+
+      - id: mixed-line-ending
+        name: Fix mixed line endings
+        description: Normalize line endings to LF
+        args: ['--fix=lf']
+
+      # Bash/Shell checks
+      - id: check-executables-have-shebangs
+        name: Check shebangs on executables
+        description: Ensure executable files have proper shebangs
+
+      - id: check-shebang-scripts-are-executable
+        name: Check scripts are executable
+        description: Ensure scripts with shebangs are executable
+
+  # ShellCheck for bash script linting
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+      - id: shellcheck
+        name: ShellCheck bash scripts
+        description: Lint bash scripts for common issues
+        args: ['--severity=warning']
+        types: [shell]
+
+  # Terraform validation and formatting
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.86.0
+    hooks:
+      - id: terraform_fmt
+        name: Terraform format
+        description: Format Terraform files consistently
+
+      - id: terraform_validate
+        name: Terraform validate
+        description: Validate Terraform configuration
+        args:
+          - --hook-config=--path=terraform/
