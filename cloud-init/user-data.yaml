@@ -1,3 +1,5 @@
+# ABOUTME: Cloud-init configuration for initial VM setup
+
 #cloud-config
 hostname: ubuntu-vm
 fqdn: ubuntu-vm.local
