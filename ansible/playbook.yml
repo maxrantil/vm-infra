@@ -3,6 +3,26 @@
   hosts: all
   become: yes
 
+  vars:
+    # User and home directory configuration
+    user_home: "/home/{{ ansible_user }}"
+
+    # SSH key paths (source on controller, destination on VM)
+    ssh_key_path: "{{ user_home }}/.ssh/id_ed25519"
+    ssh_pub_key_path: "{{ user_home }}/.ssh/id_ed25519.pub"
+    ssh_dir: "{{ user_home }}/.ssh"
+
+    # Dotfiles repository and directory
+    dotfiles_repo: "git@github.com:maxrantil/dotfiles.git"
+    dotfiles_dir: "{{ user_home }}/.dotfiles"
+
+    # Neovim directories
+    nvim_undo_dir: "{{ user_home }}/.cache/nvim/undo"
+    nvim_autoload_dir: "{{ user_home }}/.config/nvim/autoload"
+
+    # Tmux plugin directory
+    tmux_plugins_dir: "{{ user_home }}/.tmux/plugins/tpm"
+
   tasks:
     - name: Ensure system is up to date
       apt:
@@ -108,66 +128,66 @@
       args:
         creates: /usr/local/bin/starship
 
-    - name: Change default shell to zsh for user mr
+    - name: Change default shell to zsh for user
       user:
-        name: mr
+        name: "{{ ansible_user }}"
         shell: /usr/bin/zsh
 
     # Setup SSH for git operations
-    - name: Create .ssh directory for user mr
+    - name: Create .ssh directory for user
       file:
-        path: /home/mr/.ssh
+        path: "{{ ssh_dir }}"
         state: directory
-        owner: mr
-        group: mr
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
         mode: '0700'
 
     - name: Copy GitHub SSH private key to VM
       copy:
         src: ~/.ssh/id_ed25519
-        dest: /home/mr/.ssh/id_ed25519
-        owner: mr
-        group: mr
+        dest: "{{ ssh_key_path }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
         mode: '0600'
 
     - name: Copy GitHub SSH public key to VM
       copy:
         src: ~/.ssh/id_ed25519.pub
-        dest: /home/mr/.ssh/id_ed25519.pub
-        owner: mr
-        group: mr
+        dest: "{{ ssh_pub_key_path }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
         mode: '0644'
 
     - name: Add GitHub to known hosts
       known_hosts:
         name: github.com
         key: "{{ lookup('pipe', 'ssh-keyscan -t rsa github.com') }}"
-        path: /home/mr/.ssh/known_hosts
+        path: "{{ ssh_dir }}/known_hosts"
         state: present
-      become_user: mr
+      become_user: "{{ ansible_user }}"
 
     # Clone dotfiles repository
     - name: Clone dotfiles repository
       git:
-        repo: git@github.com:maxrantil/dotfiles.git
-        dest: /home/mr/.dotfiles
+        repo: "{{ dotfiles_repo }}"
+        dest: "{{ dotfiles_dir }}"
         clone: yes
         update: yes
-      become_user: mr
+      become_user: "{{ ansible_user }}"
 
     # Run dotfiles install script
     - name: Run dotfiles install script
-      command: /home/mr/.dotfiles/install.sh
-      become_user: mr
+      command: "{{ dotfiles_dir }}/install.sh"
+      become_user: "{{ ansible_user }}"
       args:
-        creates: /home/mr/.dotfiles/.install_complete
+        creates: "{{ dotfiles_dir }}/.install_complete"
 
     - name: Mark dotfiles installation as complete
       file:
-        path: /home/mr/.dotfiles/.install_complete
+        path: "{{ dotfiles_dir }}/.install_complete"
         state: touch
-        owner: mr
-        group: mr
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
         mode: '0644'
 
     # Install zsh plugins
@@ -184,38 +204,38 @@
     # Create nvim directories
     - name: Create nvim undo directory
       file:
-        path: /home/mr/.cache/nvim/undo
+        path: "{{ nvim_undo_dir }}"
         state: directory
-        owner: mr
-        group: mr
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
         mode: '0700'
 
     - name: Create nvim autoload directory
       file:
-        path: /home/mr/.config/nvim/autoload
+        path: "{{ nvim_autoload_dir }}"
         state: directory
-        owner: mr
-        group: mr
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
         mode: '0755'
 
     # Install vim-plug for neovim
     - name: Install vim-plug for neovim
       get_url:
         url: https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-        dest: /home/mr/.config/nvim/autoload/plug.vim
-        owner: mr
-        group: mr
+        dest: "{{ nvim_autoload_dir }}/plug.vim"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
         mode: '0644'
-      become_user: mr
+      become_user: "{{ ansible_user }}"
 
     # Install tmux plugin manager (TPM)
     - name: Clone TPM (tmux plugin manager)
       git:
         repo: git@github.com:tmux-plugins/tpm
-        dest: /home/mr/.tmux/plugins/tpm
+        dest: "{{ tmux_plugins_dir }}"
         clone: yes
         update: yes
-      become_user: mr
+      become_user: "{{ ansible_user }}"
 
     - name: Configure SSH to disable password auth
       lineinfile:
