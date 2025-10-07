@@ -1,5 +1,5 @@
 #!/bin/bash
-# VM Provisioning Script
+# ABOUTME: One-command VM provisioning script using Terraform and Ansible
 # Usage: ./provision-vm.sh <vm-name> [memory] [vcpus]
 
 set -e

@@ -1,5 +1,5 @@
 #!/bin/bash
-# VM Destruction Script
+# ABOUTME: Clean VM removal script that destroys Terraform resources
 # Usage: ./destroy-vm.sh <vm-name>
 
 set -e
