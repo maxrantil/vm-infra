@@ -1,3 +1,5 @@
+# ABOUTME: Terraform configuration for libvirt/KVM Ubuntu VMs
+
 terraform {
   required_providers {
     libvirt = {

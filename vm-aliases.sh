@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# VM Management Aliases
+# ABOUTME: Convenience shell functions for VM management
 # Source this file in your .zshrc or .bashrc: source ~/vm-infrastructure/vm-aliases.sh
 # Or copy individual aliases to your dotfiles .aliases file
 

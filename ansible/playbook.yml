@@ -1,3 +1,5 @@
+# ABOUTME: Ansible playbook for development environment provisioning
+
 ---
 - name: Configure Ubuntu VMs
   hosts: all
