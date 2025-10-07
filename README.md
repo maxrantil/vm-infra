@@ -121,6 +121,34 @@ The playbook (`ansible/playbook.yml`) installs:
 - Development tools (neovim, zsh, tmux, starship, git-delta)
 - Your dotfiles and configurations
 
+#### Customizing Ansible Variables
+
+All paths in the Ansible playbook are configurable via variables. Override defaults in `ansible/group_vars/all.yml` (uncomment and modify variables as needed):
+
+```yaml
+---
+# Use your own dotfiles repository
+dotfiles_repo: "git@github.com:your-username/dotfiles.git"
+
+# Change dotfiles location
+dotfiles_dir: "{{ user_home }}/.config/dotfiles"
+
+# Customize SSH key paths
+ssh_key_path: "{{ user_home }}/.ssh/custom_key"
+ssh_pub_key_path: "{{ user_home }}/.ssh/custom_key.pub"
+```
+
+**Available variables** (from `playbook.yml` defaults):
+- `user_home` - User home directory (computed from `ansible_user`)
+- `ssh_key_path` - SSH private key destination on VM
+- `ssh_pub_key_path` - SSH public key destination on VM
+- `ssh_dir` - SSH directory path (for known_hosts and config files)
+- `dotfiles_repo` - Git repository URL for dotfiles
+- `dotfiles_dir` - Dotfiles clone destination
+- `nvim_undo_dir` - Neovim undo directory
+- `nvim_autoload_dir` - Neovim autoload directory
+- `tmux_plugins_dir` - Tmux Plugin Manager directory
+
 ## SSH Access
 
 ```bash
