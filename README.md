@@ -149,6 +149,71 @@ ssh_pub_key_path: "{{ user_home }}/.ssh/custom_key.pub"
 - `nvim_autoload_dir` - Neovim autoload directory
 - `tmux_plugins_dir` - Tmux Plugin Manager directory
 
+## Testing Dotfiles Changes
+
+Test local dotfiles changes before pushing to GitHub:
+
+### Quick Test Workflow
+
+```bash
+# 1. Make changes in your local dotfiles repo
+cd ../dotfiles
+# ... make changes to .zshrc, starship config, etc. ...
+
+# 2. Test in fresh VM without committing/pushing
+cd ../vm-infra
+./provision-vm.sh test-vm --test-dotfiles ../dotfiles
+
+# 3. SSH and validate changes
+ssh -i ~/.ssh/vm_key mr@<VM_IP>
+# ... test your changes ...
+
+# 4. Destroy VM when done
+./destroy-vm.sh test-vm
+```
+
+### Test Mode Features
+
+- ✅ Uses local dotfiles (no git push needed)
+- ✅ Validates dotfiles directory exists
+- ✅ Warns if install.sh missing
+- ✅ Converts relative to absolute paths
+- ✅ Falls back to GitHub if flag not provided
+- ✅ Security validations (symlink detection, shell injection prevention)
+
+### Security Validations
+
+The `--test-dotfiles` flag includes automatic security checks:
+
+- **Symlink Detection**: Prevents symlink attacks that could redirect to system directories
+- **Shell Injection Prevention**: Blocks paths with shell metacharacters (`;`, `|`, `` ` ``, `$()`)
+- **install.sh Content Inspection**: Detects dangerous patterns (`rm -rf /`, `curl | bash`, etc.)
+- **Git Repository Validation**: Ensures valid .git directory if present
+
+### Use Cases
+
+- Testing starship configuration changes
+- Validating new shell aliases
+- Debugging dotfiles installation issues
+- Rapid iteration on complex changes
+- Testing PR branches locally
+
+### Examples
+
+```bash
+# Test with relative path
+./provision-vm.sh test-vm --test-dotfiles ../dotfiles
+
+# Test with absolute path
+./provision-vm.sh test-vm --test-dotfiles /home/user/dotfiles
+
+# Test with path containing spaces
+./provision-vm.sh test-vm --test-dotfiles "/home/user/my dotfiles"
+
+# Normal provisioning (uses GitHub)
+./provision-vm.sh prod-vm
+```
+
 ## SSH Access
 
 ```bash
