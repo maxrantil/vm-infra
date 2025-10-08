@@ -169,12 +169,15 @@
       become_user: "{{ ansible_user }}"
 
     # Clone dotfiles repository
+    # CVE-4: Git shallow clone to limit history exposure (CVSS 7.5)
+    # BUG-007: Properly handle dotfiles_local_path variable (may have spaces)
     - name: Clone dotfiles repository
       git:
-        repo: "{{ dotfiles_repo }}"
+        repo: "{% if dotfiles_local_path is defined and dotfiles_local_path != '' %}file://{{ dotfiles_local_path }}{% else %}{{ dotfiles_repo }}{% endif %}"
         dest: "{{ dotfiles_dir }}"
         clone: yes
         update: yes
+        depth: 1
       become_user: "{{ ansible_user }}"
 
     # Run dotfiles install script

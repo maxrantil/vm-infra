@@ -1,6 +1,6 @@
 #!/bin/bash
 # ABOUTME: One-command VM provisioning script using Terraform and Ansible
-# Usage: ./provision-vm.sh <vm-name> [memory] [vcpus]
+# Usage: ./provision-vm.sh <vm-name> [memory] [vcpus] [--test-dotfiles <path>]
 
 set -e
 
@@ -9,6 +9,36 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+
+# Parse arguments
+DOTFILES_LOCAL_PATH=""
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --test-dotfiles)
+            if [ -z "${2:-}" ]; then
+                echo -e "${RED}[ERROR] --test-dotfiles flag requires a path argument${NC}" >&2
+                echo "Usage: $0 <vm-name> [memory] [vcpus] [--test-dotfiles <path>]" >&2
+                exit 1
+            fi
+            DOTFILES_LOCAL_PATH="$2"
+            shift 2
+            ;;
+        -*)
+            echo -e "${RED}[ERROR] Unknown flag: $1${NC}" >&2
+            echo "Usage: $0 <vm-name> [memory] [vcpus] [--test-dotfiles <path>]" >&2
+            exit 1
+            ;;
+        *)
+            POSITIONAL_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Restore positional args
+set -- "${POSITIONAL_ARGS[@]}"
 
 # Default values
 VM_NAME="${1:-dev-vm}"
@@ -19,15 +49,6 @@ VCPUS="${3:-2}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TERRAFORM_DIR="$SCRIPT_DIR/terraform"
 ANSIBLE_DIR="$SCRIPT_DIR/ansible"
-
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  VM Provisioning Script${NC}"
-echo -e "${GREEN}========================================${NC}"
-echo ""
-echo "VM Name: $VM_NAME"
-echo "Memory: ${MEMORY}MB"
-echo "vCPUs: $VCPUS"
-echo ""
 
 # SSH validation functions
 validate_ssh_directory_permissions() {
@@ -92,6 +113,148 @@ validate_public_key_exists() {
     fi
 }
 
+# Dotfiles validation functions
+validate_dotfiles_path_exists() {
+    local path="$1"
+
+    if [ ! -e "$path" ]; then
+        echo -e "${RED}[ERROR] Dotfiles path does not exist: $path${NC}" >&2
+        exit 1
+    fi
+
+    if [ ! -d "$path" ]; then
+        echo -e "${RED}[ERROR] Dotfiles path is not a directory: $path${NC}" >&2
+        exit 1
+    fi
+}
+
+validate_dotfiles_no_symlinks() {
+    local path="$1"
+
+    # CVE-1: Symlink detection (CVSS 9.3)
+    # Check if the path itself is a symlink
+    if [ -L "$path" ]; then
+        echo -e "${RED}[ERROR] Dotfiles path is a symlink (security risk)${NC}" >&2
+        echo "Symlink attacks could redirect to sensitive system directories." >&2
+        exit 1
+    fi
+
+    # Check if any component in the path is a symlink
+    local current_path=""
+    IFS='/' read -ra PARTS <<< "$path"
+    for part in "${PARTS[@]}"; do
+        if [ -n "$part" ]; then
+            current_path="${current_path}/${part}"
+            if [ -L "$current_path" ]; then
+                echo -e "${RED}[ERROR] Dotfiles path contains symlink component: $current_path${NC}" >&2
+                echo "Symlink attacks could redirect to sensitive system directories." >&2
+                exit 1
+            fi
+        fi
+    done
+}
+
+validate_dotfiles_no_shell_injection() {
+    local path="$1"
+
+    # CVE-3: Shell injection prevention (CVSS 7.8)
+    if [[ "$path" =~ [\;\&\|\`\$\(\)] ]]; then
+        echo -e "${RED}[ERROR] Dotfiles path contains shell metacharacters (security risk)${NC}" >&2
+        echo "Path: $path" >&2
+        exit 1
+    fi
+}
+
+validate_dotfiles_git_repo() {
+    local path="$1"
+
+    # BUG-006: Git repository validation
+    if [ -d "$path/.git" ]; then
+        if ! git -C "$path" rev-parse --git-dir >/dev/null 2>&1; then
+            echo -e "${RED}[ERROR] Invalid git repository in dotfiles path${NC}" >&2
+            exit 1
+        fi
+    fi
+}
+
+validate_install_sh() {
+    local path="$1"
+    local install_script="$path/install.sh"
+
+    if [ ! -f "$install_script" ]; then
+        echo -e "${YELLOW}[WARNING] install.sh not found in dotfiles directory${NC}"
+        read -p "Continue without install.sh? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+        return 0
+    fi
+
+    # CVE-2: install.sh content inspection (CVSS 9.0)
+    local dangerous_patterns=(
+        "rm -rf /"
+        "dd if="
+        "mkfs\."
+        "curl.*\|.*bash"
+        "wget.*\|.*sh"
+        "> /dev/sd"
+        ":/bin/bash"
+    )
+
+    for pattern in "${dangerous_patterns[@]}"; do
+        if grep -qE "$pattern" "$install_script" 2>/dev/null; then
+            echo -e "${RED}[ERROR] Dangerous pattern detected in install.sh: $pattern${NC}" >&2
+            echo "For security, cannot proceed with potentially malicious install script." >&2
+            exit 1
+        fi
+    done
+}
+
+validate_and_prepare_dotfiles_path() {
+    local path="$1"
+
+    # Expand tilde
+    path="${path/#\~/$HOME}"
+
+    # Convert to absolute path (BUG-003: handles spaces correctly)
+    if [[ "$path" != /* ]]; then
+        path="$(cd "$path" && pwd)"
+    fi
+
+    # Security validations
+    validate_dotfiles_path_exists "$path"
+    validate_dotfiles_no_symlinks "$path"
+    validate_dotfiles_no_shell_injection "$path"
+    validate_dotfiles_git_repo "$path"
+    validate_install_sh "$path"
+
+    echo "$path"
+}
+
+# Validate and prepare dotfiles path if provided
+if [ -n "$DOTFILES_LOCAL_PATH" ]; then
+    echo -e "${YELLOW}Validating local dotfiles path...${NC}"
+    DOTFILES_LOCAL_PATH=$(validate_and_prepare_dotfiles_path "$DOTFILES_LOCAL_PATH")
+    echo -e "${GREEN}[OK] Using local dotfiles: $DOTFILES_LOCAL_PATH${NC}"
+    echo ""
+fi
+
+# Display configuration
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}  VM Provisioning Script${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo ""
+echo "VM Name: $VM_NAME"
+echo "Memory: ${MEMORY}MB"
+echo "vCPUs: $VCPUS"
+if [ -n "$DOTFILES_LOCAL_PATH" ]; then
+    echo "Dotfiles: $DOTFILES_LOCAL_PATH (local)"
+else
+    echo "Dotfiles: GitHub (default)"
+fi
+echo ""
+
 # Check prerequisites
 echo -e "${YELLOW}Checking prerequisites...${NC}"
 
@@ -145,11 +308,18 @@ if [ ! -d ".terraform" ]; then
     terraform init
 fi
 
-# Create VM
-if ! terraform apply -auto-approve \
-    -var="vm_name=$VM_NAME" \
-    -var="memory=$MEMORY" \
-    -var="vcpus=$VCPUS"; then
+# Create VM (BUG-003: Proper quoting for paths with spaces)
+TERRAFORM_VARS=(
+    -var="vm_name=$VM_NAME"
+    -var="memory=$MEMORY"
+    -var="vcpus=$VCPUS"
+)
+
+if [ -n "$DOTFILES_LOCAL_PATH" ]; then
+    TERRAFORM_VARS+=(-var="dotfiles_local_path=$DOTFILES_LOCAL_PATH")
+fi
+
+if ! terraform apply -auto-approve "${TERRAFORM_VARS[@]}"; then
     echo -e "${RED}[ERROR] Terraform failed to create VM${NC}" >&2
     echo "" >&2
     echo "Check terraform logs above for details" >&2
@@ -167,8 +337,8 @@ for _ in {1..10}; do
         break
     fi
     sleep 2
-    terraform refresh -var="vm_name=$VM_NAME" -var="memory=$MEMORY" -var="vcpus=$VCPUS" >/dev/null 2>&1
-    terraform apply -auto-approve -var="vm_name=$VM_NAME" -var="memory=$MEMORY" -var="vcpus=$VCPUS" >/dev/null 2>&1
+    terraform refresh "${TERRAFORM_VARS[@]}" >/dev/null 2>&1
+    terraform apply -auto-approve "${TERRAFORM_VARS[@]}" >/dev/null 2>&1
 done
 
 if [ "$VM_IP" = "pending" ] || [ -z "$VM_IP" ]; then
