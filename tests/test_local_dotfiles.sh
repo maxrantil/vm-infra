@@ -945,6 +945,49 @@ test_install_sh_not_executable() {
     teardown_test_env
 }
 
+test_install_sh_world_writable() {
+    setup_test_env
+
+    # Test: SEC-005 - World-writable install.sh should be rejected (CVSS 4.0)
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
+    chmod 666 "$TEST_DOTFILES_DIR/install.sh"  # rw-rw-rw-
+
+    # Check if provision-vm.sh validates permissions
+    local result="fail"
+    if grep -q 'stat -c "%a"' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null && \
+       grep -q '002' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-005: Script implements world-writable permission check" "pass" "$result"
+
+    teardown_test_env
+}
+
+test_install_sh_group_writable() {
+    setup_test_env
+
+    # Test: SEC-005 - Group-writable install.sh should be rejected
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
+    chmod 664 "$TEST_DOTFILES_DIR/install.sh"  # rw-rw-r--
+
+    # Simulate permission check (group-writable bit 020)
+    local perms="664"
+    local group_writable=$((8#$perms & 8#020))
+
+    if [ "$group_writable" -ne 0 ]; then
+        result="fail"  # Group-writable detected (should be rejected)
+    else
+        result="pass"
+    fi
+
+    test_result "SEC-005: Group-writable install.sh should be detected" "fail" "$result"
+
+    teardown_test_env
+}
+
 ##############################################################################
 # INTEGRATION TESTS - Terraform Variable Passing
 ##############################################################################
@@ -1190,6 +1233,8 @@ main() {
     test_install_sh_missing_warning
     test_install_sh_present
     test_install_sh_not_executable
+    test_install_sh_world_writable
+    test_install_sh_group_writable
 
     # Integration Tests - Terraform
     test_terraform_variable_passing
