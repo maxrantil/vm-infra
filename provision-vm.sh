@@ -226,14 +226,53 @@ validate_install_sh() {
     fi
 
     # CVE-2: install.sh content inspection (CVSS 9.0)
+    # SEC-002: Expanded patterns to prevent evasion (CVSS 7.5)
     local dangerous_patterns=(
+        # Destructive commands
+        "rm.*-rf.*/"
         "rm -rf /"
         "dd if="
         "mkfs\."
-        "curl.*\|.*bash"
-        "wget.*\|.*sh"
-        "> /dev/sd"
-        ":/bin/bash"
+        "> ?/dev/sd"
+
+        # Remote code execution
+        "curl.*\|.*(bash|sh)"
+        "wget.*\|.*(bash|sh)"
+        "eval"
+        "exec"
+        "source.*http"
+        "\\. .*http"
+
+        # Privilege escalation
+        ":/bin/(ba)?sh"
+        "chown.*root"
+        "chmod.*[67][0-9][0-9]"
+        "sudo"
+        "su "
+
+        # Obfuscation indicators
+        "\\\\x[0-9a-f]{2}"
+        "base64.*-d.*\|"
+        "xxd"
+        "\\\${IFS}"
+        "\\\$[A-Z_]+.*\\\$[A-Z_]+"
+
+        # Network access
+        "nc "
+        "netcat"
+        "socat"
+        "/dev/tcp/"
+
+        # System modification
+        "iptables"
+        "ufw "
+        "systemctl"
+        "service "
+
+        # Crypto mining
+        "xmrig"
+        "miner"
+        "stratum"
     )
 
     for pattern in "${dangerous_patterns[@]}"; do

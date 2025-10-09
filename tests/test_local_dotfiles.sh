@@ -102,19 +102,58 @@ validate_install_sh_safe() {
     local install_script="$path/install.sh"
 
     # CVE-2: install.sh content inspection (CVSS 9.0)
+    # SEC-002: Expanded patterns to prevent evasion (CVSS 7.5)
     if [ ! -f "$install_script" ]; then
         return 0  # Already handled by validate_install_sh_exists
     fi
 
     # Check for dangerous commands
     local dangerous_patterns=(
+        # Destructive commands
+        "rm.*-rf.*/"
         "rm -rf /"
         "dd if="
         "mkfs\."
-        "curl.*\|.*bash"
-        "wget.*\|.*sh"
-        "> /dev/sd"
-        ":/bin/bash"  # Suspicious shell access
+        "> ?/dev/sd"
+
+        # Remote code execution
+        "curl.*\|.*(bash|sh)"
+        "wget.*\|.*(bash|sh)"
+        "eval"
+        "exec"
+        "source.*http"
+        "\\. .*http"
+
+        # Privilege escalation
+        ":/bin/(ba)?sh"
+        "chown.*root"
+        "chmod.*[67][0-9][0-9]"
+        "sudo"
+        "su "
+
+        # Obfuscation indicators
+        "\\\\x[0-9a-f]{2}"
+        "base64.*-d.*\|"
+        "xxd"
+        "\\\${IFS}"
+        "\\\$[A-Z_]+.*\\\$[A-Z_]+"
+
+        # Network access
+        "nc "
+        "netcat"
+        "socat"
+        "/dev/tcp/"
+
+        # System modification
+        "iptables"
+        "ufw "
+        "systemctl"
+        "service "
+
+        # Crypto mining
+        "xmrig"
+        "miner"
+        "stratum"
     )
 
     for pattern in "${dangerous_patterns[@]}"; do
@@ -410,6 +449,88 @@ EOF
 
     validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
     test_result "CVE-2: Safe install.sh content should pass validation" "pass" "$result"
+
+    teardown_test_env
+}
+
+test_security_pattern_evasion_variable_expansion() {
+    setup_test_env
+
+    # Test: SEC-002 - Pattern evasion via variable expansion
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+#!/bin/bash
+CMD="rm -rf"
+TARGET="/"
+$CMD $TARGET
+EOF
+
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-002: Variable expansion evasion should be detected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_pattern_evasion_base64() {
+    setup_test_env
+
+    # Test: SEC-002 - Pattern evasion via base64 encoding
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+#!/bin/bash
+echo "cm0gLXJmIC8K" | base64 -d | bash
+EOF
+
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-002: Base64 encoding evasion should be detected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_pattern_evasion_whitespace_ifs() {
+    setup_test_env
+
+    # Test: SEC-002 - Pattern evasion via IFS whitespace trick
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+#!/bin/bash
+rm${IFS}-rf${IFS}/
+EOF
+
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-002: IFS whitespace evasion should be detected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_pattern_evasion_eval() {
+    setup_test_env
+
+    # Test: SEC-002 - Eval command should be detected
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+#!/bin/bash
+eval "rm -rf /tmp/evil"
+EOF
+
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-002: Eval command should be detected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_pattern_evasion_sudo() {
+    setup_test_env
+
+    # Test: SEC-002 - Sudo privilege escalation should be detected
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+#!/bin/bash
+sudo chown root:root /etc/passwd
+EOF
+
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-002: Sudo privilege escalation should be detected" "fail" "$result"
 
     teardown_test_env
 }
@@ -821,6 +942,11 @@ main() {
     test_security_install_sh_dangerous_commands
     test_security_install_sh_curl_pipe_bash
     test_security_install_sh_safe_content
+    test_security_pattern_evasion_variable_expansion
+    test_security_pattern_evasion_base64
+    test_security_pattern_evasion_whitespace_ifs
+    test_security_pattern_evasion_eval
+    test_security_pattern_evasion_sudo
     test_security_shell_injection_semicolon
     test_security_shell_injection_pipe
     test_security_shell_injection_backtick
