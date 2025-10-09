@@ -154,6 +154,40 @@ validate_dotfiles_no_symlinks() {
     done
 }
 
+validate_dotfiles_canonical_path() {
+    local path="$1"
+
+    # SEC-001: TOCTOU race condition prevention (CVSS 6.8)
+    # Validate that the path itself is not a symlink (catches TOCTOU replacements)
+    # This is checked AFTER validate_dotfiles_no_symlinks to catch race conditions
+    # where a directory is replaced with a symlink between checks
+    if [ -L "$path" ]; then
+        echo -e "${RED}[ERROR] Path is a symlink (TOCTOU protection)${NC}" >&2
+        echo "Path may have been replaced after initial validation." >&2
+        echo "This prevents time-of-check-time-of-use race conditions." >&2
+        exit 1
+    fi
+
+    # Additional canonical path check using realpath if available
+    if command -v realpath >/dev/null 2>&1; then
+        local canonical_path
+        canonical_path=$(realpath --no-symlinks "$path" 2>/dev/null)
+
+        if [ -z "$canonical_path" ]; then
+            echo -e "${RED}[ERROR] Unable to resolve canonical path${NC}" >&2
+            exit 1
+        fi
+
+        if [ "$canonical_path" != "$path" ]; then
+            echo -e "${RED}[ERROR] Path contains symlink component (TOCTOU protection)${NC}" >&2
+            echo "Expected: $path" >&2
+            echo "Canonical: $canonical_path" >&2
+            echo "This prevents time-of-check-time-of-use race conditions." >&2
+            exit 1
+        fi
+    fi
+}
+
 validate_dotfiles_no_shell_injection() {
     local path="$1"
 
@@ -225,6 +259,7 @@ validate_and_prepare_dotfiles_path() {
     # Security validations
     validate_dotfiles_path_exists "$path"
     validate_dotfiles_no_symlinks "$path"
+    validate_dotfiles_canonical_path "$path"
     validate_dotfiles_no_shell_injection "$path"
     validate_dotfiles_git_repo "$path"
     validate_install_sh "$path"
