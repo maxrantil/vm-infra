@@ -152,6 +152,16 @@ validate_dotfiles_no_symlinks() {
             fi
         fi
     done
+
+    # SEC-004: Recursive symlink detection (CVSS 5.5)
+    # Check for symlinked files within the directory
+    if find "$path" -type l -print -quit 2>/dev/null | grep -q .; then
+        echo -e "${RED}[ERROR] Symlinked files detected in dotfiles directory${NC}" >&2
+        echo "The following symlinks were found:" >&2
+        find "$path" -type l 2>/dev/null >&2
+        echo "Symlinks within dotfiles could redirect to malicious files." >&2
+        exit 1
+    fi
 }
 
 validate_dotfiles_canonical_path() {
