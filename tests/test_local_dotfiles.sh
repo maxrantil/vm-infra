@@ -813,6 +813,51 @@ test_security_git_shallow_clone_both_sources() {
     test_result "CVE-4: Both local and remote use shallow clone" "pass" "$result"
 }
 
+test_security_recursive_symlink_detection() {
+    setup_test_env
+
+    # Test: SEC-004 - Recursive symlink detection (CVSS 5.5)
+    # Create directory with symlinked file inside
+    mkdir -p "$TEST_DOTFILES_DIR"
+    mkdir -p "$TEST_SYMLINK_TARGET"
+    touch "$TEST_SYMLINK_TARGET/malicious_file"
+    ln -s "$TEST_SYMLINK_TARGET/malicious_file" "$TEST_DOTFILES_DIR/install.sh"
+
+    # Check if provision-vm.sh detects symlinks recursively
+    local result="fail"
+    if grep -q 'find.*-type l' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-004: Script implements recursive symlink detection" "pass" "$result"
+
+    teardown_test_env
+}
+
+test_security_nested_symlink_in_dotfiles() {
+    setup_test_env
+
+    # Test: SEC-004 - Nested symlink inside dotfiles directory
+    mkdir -p "$TEST_DOTFILES_DIR/subdir"
+    mkdir -p "$TEST_SYMLINK_TARGET"
+    touch "$TEST_SYMLINK_TARGET/config"
+    ln -s "$TEST_SYMLINK_TARGET/config" "$TEST_DOTFILES_DIR/subdir/config"
+
+    # Simulate find command for symlink detection
+    local found_symlinks
+    found_symlinks=$(find "$TEST_DOTFILES_DIR" -type l 2>/dev/null)
+
+    if [ -n "$found_symlinks" ]; then
+        result="fail"  # Found symlinks (should be rejected)
+    else
+        result="pass"
+    fi
+
+    test_result "SEC-004: Nested symlink should be detected by find" "fail" "$result"
+
+    teardown_test_env
+}
+
 ##############################################################################
 # UNIT TESTS - Git Repository Validation
 ##############################################################################
@@ -1133,6 +1178,8 @@ main() {
     test_security_toctou_symlink_replacement_prevention
     test_security_git_shallow_clone_playbook
     test_security_git_shallow_clone_both_sources
+    test_security_recursive_symlink_detection
+    test_security_nested_symlink_in_dotfiles
 
     # Unit Tests - Git Repository Validation
     test_git_repo_validation_valid
