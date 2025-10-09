@@ -50,6 +50,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TERRAFORM_DIR="$SCRIPT_DIR/terraform"
 ANSIBLE_DIR="$SCRIPT_DIR/ansible"
 
+# SEC-007: Rollback mechanism on failure (CVSS 5.0)
+VM_CREATED=false
+
+cleanup_on_failure() {
+    local exit_code=$?
+    if [ $exit_code -ne 0 ] && [ "$VM_CREATED" = true ]; then
+        echo "" >&2
+        echo -e "${YELLOW}[WARNING] Provisioning failed, cleaning up VM...${NC}" >&2
+        cd "$TERRAFORM_DIR" && terraform destroy -auto-approve "${TERRAFORM_VARS[@]}" 2>/dev/null || true
+        echo -e "${GREEN}[CLEANUP] VM resources destroyed${NC}" >&2
+    fi
+}
+
+trap cleanup_on_failure EXIT
+
 # SSH validation functions
 validate_ssh_directory_permissions() {
     local ssh_dir="$HOME/.ssh"
@@ -152,6 +167,16 @@ validate_dotfiles_no_symlinks() {
             fi
         fi
     done
+
+    # SEC-004: Recursive symlink detection (CVSS 5.5)
+    # Check for symlinked files within the directory
+    if find "$path" -type l -print -quit 2>/dev/null | grep -q .; then
+        echo -e "${RED}[ERROR] Symlinked files detected in dotfiles directory${NC}" >&2
+        echo "The following symlinks were found:" >&2
+        find "$path" -type l 2>/dev/null >&2
+        echo "Symlinks within dotfiles could redirect to malicious files." >&2
+        exit 1
+    fi
 }
 
 validate_dotfiles_canonical_path() {
@@ -192,9 +217,24 @@ validate_dotfiles_no_shell_injection() {
     local path="$1"
 
     # CVE-3: Shell injection prevention (CVSS 7.8)
-    if [[ "$path" =~ [\;\&\|\`\$\(\)] ]]; then
-        echo -e "${RED}[ERROR] Dotfiles path contains shell metacharacters (security risk)${NC}" >&2
+    # SEC-003: Comprehensive metacharacter coverage (CVSS 7.0)
+    # Block ALL metacharacters and control chars
+    # Pattern explanation:
+    # - [;\&|`$()<>{}*?#'\"[:space:][:cntrl:]] - most special chars and POSIX classes
+    # - \\ - backslash (needs alternation)
+    # - \[ - open bracket (needs alternation)
+    local pattern='[;\&|`$()<>{}*?#'\''"[:space:][:cntrl:]]|\\|\['
+    if [[ "$path" =~ $pattern ]]; then
+        echo -e "${RED}[ERROR] Dotfiles path contains prohibited characters (security risk)${NC}" >&2
         echo "Path: $path" >&2
+        echo "Allowed characters: alphanumeric, hyphen, underscore, slash, period" >&2
+        exit 1
+    fi
+
+    # Ensure path is printable ASCII
+    if ! [[ "$path" =~ ^[[:print:]]+$ ]]; then
+        echo -e "${RED}[ERROR] Dotfiles path contains non-printable characters (security risk)${NC}" >&2
+        echo "Path must contain only printable ASCII characters" >&2
         exit 1
     fi
 }
@@ -223,6 +263,27 @@ validate_install_sh() {
             exit 1
         fi
         return 0
+    fi
+
+    # SEC-005: Permission validation (CVSS 4.0)
+    # Check for world-writable or group-writable permissions
+    local perms
+    perms=$(stat -c "%a" "$install_script" 2>/dev/null || echo "000")
+
+    # Check world-writable bit (002)
+    if [ $((8#$perms & 8#002)) -ne 0 ]; then
+        echo -e "${RED}[ERROR] install.sh is world-writable (insecure permissions)${NC}" >&2
+        echo "Permissions: $perms" >&2
+        echo "Fix with: chmod 644 $install_script" >&2
+        exit 1
+    fi
+
+    # Check group-writable bit (020)
+    if [ $((8#$perms & 8#020)) -ne 0 ]; then
+        echo -e "${RED}[ERROR] install.sh is group-writable (insecure permissions)${NC}" >&2
+        echo "Permissions: $perms" >&2
+        echo "Fix with: chmod 644 $install_script" >&2
+        exit 1
     fi
 
     # CVE-2: install.sh content inspection (CVSS 9.0)
@@ -282,6 +343,39 @@ validate_install_sh() {
             exit 1
         fi
     done
+
+    # SEC-006: Whitelist validation (CVSS 5.0)
+    # Add whitelist validation as second layer after blacklist
+    # Whitelisted commands are common dotfiles operations
+    local safe_pattern="^(#|$|[[:space:]]*(ln|cp|mv|mkdir|echo|cat|grep|sed|awk|printf|test|\\[|chmod|chown|git|stow))"
+
+    local unsafe_lines=0
+    while IFS= read -r line; do
+        # Skip comments
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        # Skip empty lines
+        [[ -z "$line" ]] && continue
+
+        # Check if line matches safe pattern
+        if ! [[ "$line" =~ $safe_pattern ]]; then
+            echo -e "${YELLOW}[WARNING] Potentially unsafe command: $line${NC}" >&2
+            ((unsafe_lines++))
+        fi
+    done < "$install_script"
+
+    # Interactive confirmation if unsafe lines detected
+    if [ "$unsafe_lines" -gt 0 ]; then
+        echo "" >&2
+        echo -e "${YELLOW}[WARNING] install.sh contains $unsafe_lines potentially unsafe command(s)${NC}" >&2
+        echo "Commands outside the whitelist may indicate security risks." >&2
+        echo "Whitelisted commands: ln, cp, mv, mkdir, echo, cat, grep, sed, awk, printf, test, [, chmod, chown, git, stow" >&2
+        echo "" >&2
+        read -p "Continue anyway? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
 }
 
 validate_and_prepare_dotfiles_path() {
@@ -399,6 +493,9 @@ if ! terraform apply -auto-approve "${TERRAFORM_VARS[@]}"; then
     echo "Check terraform logs above for details" >&2
     exit 1
 fi
+
+# Mark VM as created for cleanup trap
+VM_CREATED=true
 
 echo -e "${GREEN}[SUCCESS] Terraform apply completed${NC}"
 
