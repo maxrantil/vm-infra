@@ -170,9 +170,17 @@ validate_path_no_shell_injection() {
     local path="$1"
 
     # CVE-3: Shell injection prevention (CVSS 7.8)
-    # Check for shell metacharacters that could cause injection
-    if [[ "$path" =~ [\;\&\|\`\$\(\)] ]]; then
-        echo "ERROR: Path contains shell metacharacters"
+    # SEC-003: Comprehensive metacharacter coverage (CVSS 7.0)
+    # Block ALL metacharacters and control chars
+    local pattern='[;\&|`$()<>{}*?#'\''"[:space:][:cntrl:]]|\\|\['
+    if [[ "$path" =~ $pattern ]]; then
+        echo "ERROR: Path contains prohibited characters"
+        return 1
+    fi
+
+    # Ensure path is printable ASCII
+    if ! [[ "$path" =~ ^[[:print:]]+$ ]]; then
+        echo "ERROR: Path contains non-printable characters"
         return 1
     fi
 
@@ -579,6 +587,138 @@ test_security_shell_injection_dollar_paren() {
     teardown_test_env
 }
 
+test_security_shell_injection_newline() {
+    setup_test_env
+
+    # Test: SEC-003 - Newline injection (CVSS 7.0)
+    local malicious_path="/tmp/dotfiles
+malicious-command"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with newline should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_tab() {
+    setup_test_env
+
+    # Test: SEC-003 - Tab character injection
+    local malicious_path="/tmp/dotfiles	malicious"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with tab character should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_glob_asterisk() {
+    setup_test_env
+
+    # Test: SEC-003 - Glob pattern with asterisk
+    local malicious_path="/tmp/dotfiles*"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with glob asterisk (*) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_glob_question() {
+    setup_test_env
+
+    # Test: SEC-003 - Glob pattern with question mark
+    local malicious_path="/tmp/dotfiles?"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with glob question (?) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_glob_bracket() {
+    setup_test_env
+
+    # Test: SEC-003 - Glob pattern with brackets
+    local malicious_path="/tmp/dotfiles[abc]"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with glob brackets ([]) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_angle_brackets() {
+    setup_test_env
+
+    # Test: SEC-003 - Redirection with angle brackets
+    local malicious_path="/tmp/dotfiles > /etc/passwd"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with angle brackets (<>) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_braces() {
+    setup_test_env
+
+    # Test: SEC-003 - Brace expansion
+    local malicious_path="/tmp/dotfiles{a,b}"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with braces ({}) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_hash() {
+    setup_test_env
+
+    # Test: SEC-003 - Hash character (comment)
+    local malicious_path="/tmp/dotfiles # comment"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with hash (#) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_quotes() {
+    setup_test_env
+
+    # Test: SEC-003 - Single and double quotes
+    local malicious_path="/tmp/dotfiles'test"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with single quote (') should be rejected" "fail" "$result"
+
+    local malicious_path2="/tmp/dotfiles\"test"
+    validate_path_no_shell_injection "$malicious_path2" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with double quote (\") should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_backslash() {
+    setup_test_env
+
+    # Test: SEC-003 - Backslash escape character
+    local malicious_path="/tmp/dotfiles\\ntest"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with backslash (\\) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_printable_check() {
+    setup_test_env
+
+    # Test: SEC-003 - Non-printable ASCII characters
+    # Check that the script verifies paths are printable ASCII
+    local result="fail"
+
+    # Check if provision-vm.sh has printable ASCII validation
+    if grep -q '\[:print:\]' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-003: Script implements printable ASCII validation" "pass" "$result"
+
+    teardown_test_env
+}
+
 test_security_toctou_canonical_path_validation() {
     setup_test_env
 
@@ -951,6 +1091,17 @@ main() {
     test_security_shell_injection_pipe
     test_security_shell_injection_backtick
     test_security_shell_injection_dollar_paren
+    test_security_shell_injection_newline
+    test_security_shell_injection_tab
+    test_security_shell_injection_glob_asterisk
+    test_security_shell_injection_glob_question
+    test_security_shell_injection_glob_bracket
+    test_security_shell_injection_angle_brackets
+    test_security_shell_injection_braces
+    test_security_shell_injection_hash
+    test_security_shell_injection_quotes
+    test_security_shell_injection_backslash
+    test_security_shell_injection_printable_check
     test_security_toctou_canonical_path_validation
     test_security_toctou_symlink_replacement_prevention
 

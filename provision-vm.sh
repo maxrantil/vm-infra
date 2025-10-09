@@ -192,9 +192,24 @@ validate_dotfiles_no_shell_injection() {
     local path="$1"
 
     # CVE-3: Shell injection prevention (CVSS 7.8)
-    if [[ "$path" =~ [\;\&\|\`\$\(\)] ]]; then
-        echo -e "${RED}[ERROR] Dotfiles path contains shell metacharacters (security risk)${NC}" >&2
+    # SEC-003: Comprehensive metacharacter coverage (CVSS 7.0)
+    # Block ALL metacharacters and control chars
+    # Pattern explanation:
+    # - [;\&|`$()<>{}*?#'\"[:space:][:cntrl:]] - most special chars and POSIX classes
+    # - \\ - backslash (needs alternation)
+    # - \[ - open bracket (needs alternation)
+    local pattern='[;\&|`$()<>{}*?#'\''"[:space:][:cntrl:]]|\\|\['
+    if [[ "$path" =~ $pattern ]]; then
+        echo -e "${RED}[ERROR] Dotfiles path contains prohibited characters (security risk)${NC}" >&2
         echo "Path: $path" >&2
+        echo "Allowed characters: alphanumeric, hyphen, underscore, slash, period" >&2
+        exit 1
+    fi
+
+    # Ensure path is printable ASCII
+    if ! [[ "$path" =~ ^[[:print:]]+$ ]]; then
+        echo -e "${RED}[ERROR] Dotfiles path contains non-printable characters (security risk)${NC}" >&2
+        echo "Path must contain only printable ASCII characters" >&2
         exit 1
     fi
 }
