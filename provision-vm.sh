@@ -343,6 +343,39 @@ validate_install_sh() {
             exit 1
         fi
     done
+
+    # SEC-006: Whitelist validation (CVSS 5.0)
+    # Add whitelist validation as second layer after blacklist
+    # Whitelisted commands are common dotfiles operations
+    local safe_pattern="^(#|$|[[:space:]]*(ln|cp|mv|mkdir|echo|cat|grep|sed|awk|printf|test|\\[|chmod|chown|git|stow))"
+
+    local unsafe_lines=0
+    while IFS= read -r line; do
+        # Skip comments
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        # Skip empty lines
+        [[ -z "$line" ]] && continue
+
+        # Check if line matches safe pattern
+        if ! [[ "$line" =~ $safe_pattern ]]; then
+            echo -e "${YELLOW}[WARNING] Potentially unsafe command: $line${NC}" >&2
+            ((unsafe_lines++))
+        fi
+    done < "$install_script"
+
+    # Interactive confirmation if unsafe lines detected
+    if [ "$unsafe_lines" -gt 0 ]; then
+        echo "" >&2
+        echo -e "${YELLOW}[WARNING] install.sh contains $unsafe_lines potentially unsafe command(s)${NC}" >&2
+        echo "Commands outside the whitelist may indicate security risks." >&2
+        echo "Whitelisted commands: ln, cp, mv, mkdir, echo, cat, grep, sed, awk, printf, test, [, chmod, chown, git, stow" >&2
+        echo "" >&2
+        read -p "Continue anyway? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
 }
 
 validate_and_prepare_dotfiles_path() {
