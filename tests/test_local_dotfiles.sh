@@ -1128,6 +1128,30 @@ test_bug_008_rollback_mechanism() {
     test_result "BUG-008: Script should exit on validation failure (no Terraform)" "pass" "$result"
 }
 
+test_sec_007_cleanup_trap_exists() {
+    # Test: SEC-007 - Cleanup trap mechanism (CVSS 5.0)
+    # Check that script has trap for EXIT signal
+    local result="fail"
+
+    if grep -q 'trap.*cleanup_on_failure.*EXIT' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-007: Script implements cleanup trap on EXIT" "pass" "$result"
+}
+
+test_sec_007_vm_created_tracking() {
+    # Test: SEC-007 - VM creation state tracking
+    # Check that script tracks whether VM was created
+    local result="fail"
+
+    if grep -q 'VM_CREATED=' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-007: Script tracks VM creation state" "pass" "$result"
+}
+
 ##############################################################################
 # TEST SUMMARY
 ##############################################################################
@@ -1254,6 +1278,8 @@ main() {
 
     # Bug Tests
     test_bug_008_rollback_mechanism
+    test_sec_007_cleanup_trap_exists
+    test_sec_007_vm_created_tracking
 
     # Print summary
     print_summary
