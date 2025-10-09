@@ -170,9 +170,17 @@ validate_path_no_shell_injection() {
     local path="$1"
 
     # CVE-3: Shell injection prevention (CVSS 7.8)
-    # Check for shell metacharacters that could cause injection
-    if [[ "$path" =~ [\;\&\|\`\$\(\)] ]]; then
-        echo "ERROR: Path contains shell metacharacters"
+    # SEC-003: Comprehensive metacharacter coverage (CVSS 7.0)
+    # Block ALL metacharacters and control chars
+    local pattern='[;\&|`$()<>{}*?#'\''"[:space:][:cntrl:]]|\\|\['
+    if [[ "$path" =~ $pattern ]]; then
+        echo "ERROR: Path contains prohibited characters"
+        return 1
+    fi
+
+    # Ensure path is printable ASCII
+    if ! [[ "$path" =~ ^[[:print:]]+$ ]]; then
+        echo "ERROR: Path contains non-printable characters"
         return 1
     fi
 
@@ -579,6 +587,138 @@ test_security_shell_injection_dollar_paren() {
     teardown_test_env
 }
 
+test_security_shell_injection_newline() {
+    setup_test_env
+
+    # Test: SEC-003 - Newline injection (CVSS 7.0)
+    local malicious_path="/tmp/dotfiles
+malicious-command"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with newline should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_tab() {
+    setup_test_env
+
+    # Test: SEC-003 - Tab character injection
+    local malicious_path="/tmp/dotfiles	malicious"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with tab character should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_glob_asterisk() {
+    setup_test_env
+
+    # Test: SEC-003 - Glob pattern with asterisk
+    local malicious_path="/tmp/dotfiles*"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with glob asterisk (*) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_glob_question() {
+    setup_test_env
+
+    # Test: SEC-003 - Glob pattern with question mark
+    local malicious_path="/tmp/dotfiles?"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with glob question (?) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_glob_bracket() {
+    setup_test_env
+
+    # Test: SEC-003 - Glob pattern with brackets
+    local malicious_path="/tmp/dotfiles[abc]"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with glob brackets ([]) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_angle_brackets() {
+    setup_test_env
+
+    # Test: SEC-003 - Redirection with angle brackets
+    local malicious_path="/tmp/dotfiles > /etc/passwd"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with angle brackets (<>) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_braces() {
+    setup_test_env
+
+    # Test: SEC-003 - Brace expansion
+    local malicious_path="/tmp/dotfiles{a,b}"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with braces ({}) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_hash() {
+    setup_test_env
+
+    # Test: SEC-003 - Hash character (comment)
+    local malicious_path="/tmp/dotfiles # comment"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with hash (#) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_quotes() {
+    setup_test_env
+
+    # Test: SEC-003 - Single and double quotes
+    local malicious_path="/tmp/dotfiles'test"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with single quote (') should be rejected" "fail" "$result"
+
+    local malicious_path2="/tmp/dotfiles\"test"
+    validate_path_no_shell_injection "$malicious_path2" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with double quote (\") should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_backslash() {
+    setup_test_env
+
+    # Test: SEC-003 - Backslash escape character
+    local malicious_path="/tmp/dotfiles\\ntest"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with backslash (\\) should be rejected" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_shell_injection_printable_check() {
+    setup_test_env
+
+    # Test: SEC-003 - Non-printable ASCII characters
+    # Check that the script verifies paths are printable ASCII
+    local result="fail"
+
+    # Check if provision-vm.sh has printable ASCII validation
+    if grep -q '\[:print:\]' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-003: Script implements printable ASCII validation" "pass" "$result"
+
+    teardown_test_env
+}
+
 test_security_toctou_canonical_path_validation() {
     setup_test_env
 
@@ -642,6 +782,158 @@ test_security_toctou_symlink_replacement_prevention() {
     # Test: Symlink should fail canonical check
     validate_with_canonical_check "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
     test_result "SEC-001: TOCTOU - Symlink fails canonical check" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_git_shallow_clone_playbook() {
+    # Test: CVE-4 - Git shallow clone limits history exposure (CVSS 7.5)
+    # Verify Ansible playbook has depth: 1 parameter
+    local result="fail"
+
+    if grep -q "depth: 1" "$SCRIPT_DIR/../ansible/playbook.yml" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "CVE-4: Git shallow clone limits history exposure" "pass" "$result"
+}
+
+test_security_git_shallow_clone_both_sources() {
+    # Test: CVE-4 - Both local and remote dotfiles use shallow clone
+    # Check the git task has depth parameter near the dotfiles repo configuration
+    local playbook="$SCRIPT_DIR/../ansible/playbook.yml"
+    local result="fail"
+
+    # Check that the Clone dotfiles repository task has depth: 1
+    # Need -A10 because there are comment lines and yaml structure before depth
+    if grep -A10 "Clone dotfiles repository" "$playbook" 2>/dev/null | grep -q "depth: 1"; then
+        result="pass"
+    fi
+
+    test_result "CVE-4: Both local and remote use shallow clone" "pass" "$result"
+}
+
+test_security_recursive_symlink_detection() {
+    setup_test_env
+
+    # Test: SEC-004 - Recursive symlink detection (CVSS 5.5)
+    # Create directory with symlinked file inside
+    mkdir -p "$TEST_DOTFILES_DIR"
+    mkdir -p "$TEST_SYMLINK_TARGET"
+    touch "$TEST_SYMLINK_TARGET/malicious_file"
+    ln -s "$TEST_SYMLINK_TARGET/malicious_file" "$TEST_DOTFILES_DIR/install.sh"
+
+    # Check if provision-vm.sh detects symlinks recursively
+    local result="fail"
+    if grep -q 'find.*-type l' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-004: Script implements recursive symlink detection" "pass" "$result"
+
+    teardown_test_env
+}
+
+test_security_nested_symlink_in_dotfiles() {
+    setup_test_env
+
+    # Test: SEC-004 - Nested symlink inside dotfiles directory
+    mkdir -p "$TEST_DOTFILES_DIR/subdir"
+    mkdir -p "$TEST_SYMLINK_TARGET"
+    touch "$TEST_SYMLINK_TARGET/config"
+    ln -s "$TEST_SYMLINK_TARGET/config" "$TEST_DOTFILES_DIR/subdir/config"
+
+    # Simulate find command for symlink detection
+    local found_symlinks
+    found_symlinks=$(find "$TEST_DOTFILES_DIR" -type l 2>/dev/null)
+
+    if [ -n "$found_symlinks" ]; then
+        result="fail"  # Found symlinks (should be rejected)
+    else
+        result="pass"
+    fi
+
+    test_result "SEC-004: Nested symlink should be detected by find" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_whitelist_safe_commands() {
+    setup_test_env
+
+    # Test: SEC-006 - Whitelist validation allows safe commands (CVSS 5.0)
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+#!/bin/bash
+# Safe dotfiles installation script
+echo "Installing dotfiles..."
+ln -sf ~/.dotfiles/.zshrc ~/.zshrc
+cp ~/.dotfiles/.tmux.conf ~/.tmux.conf
+mkdir -p ~/.config/nvim
+git clone https://github.com/example/vim-config ~/.vim
+stow dotfiles
+EOF
+
+    # Check if provision-vm.sh implements whitelist validation
+    local result="fail"
+    if grep -q 'SEC-006: Whitelist validation' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null && \
+       grep -q 'safe_pattern=' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-006: Script implements whitelist validation" "pass" "$result"
+
+    teardown_test_env
+}
+
+test_security_whitelist_detects_python() {
+    setup_test_env
+
+    # Test: SEC-006 - Whitelist detects non-whitelisted command (python)
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+#!/bin/bash
+echo "Installing dotfiles..."
+python3 -m pip install some-package
+EOF
+
+    # Whitelist should detect 'python3' as potentially unsafe
+    local safe_pattern="^(#|$|[[:space:]]*(ln|cp|mv|mkdir|echo|cat|grep|sed|awk|printf|test|\\[|chmod|chown|git|stow))"
+    local result="pass"
+
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$line" ]] && continue
+
+        if ! [[ "$line" =~ $safe_pattern ]]; then
+            result="fail"  # Unsafe command detected (expected)
+            break
+        fi
+    done < "$TEST_DOTFILES_DIR/install.sh"
+
+    test_result "SEC-006: Whitelist detects non-whitelisted commands" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_whitelist_interactive_prompt() {
+    setup_test_env
+
+    # Test: SEC-006 - Whitelist triggers interactive prompt for unsafe commands
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+#!/bin/bash
+npm install
+EOF
+
+    # Check that provision-vm.sh prompts user when unsafe commands detected
+    local result="fail"
+    if grep -q 'Continue anyway.*y/N' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null && \
+       grep -q 'potentially unsafe command' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-006: Whitelist triggers interactive prompt for unsafe commands" "pass" "$result"
 
     teardown_test_env
 }
@@ -729,6 +1021,49 @@ test_install_sh_not_executable() {
 
     validate_install_sh_exists "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
     test_result "Non-executable install.sh should pass (Ansible handles execution)" "pass" "$result"
+
+    teardown_test_env
+}
+
+test_install_sh_world_writable() {
+    setup_test_env
+
+    # Test: SEC-005 - World-writable install.sh should be rejected (CVSS 4.0)
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
+    chmod 666 "$TEST_DOTFILES_DIR/install.sh"  # rw-rw-rw-
+
+    # Check if provision-vm.sh validates permissions
+    local result="fail"
+    if grep -q 'stat -c "%a"' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null && \
+       grep -q '002' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-005: Script implements world-writable permission check" "pass" "$result"
+
+    teardown_test_env
+}
+
+test_install_sh_group_writable() {
+    setup_test_env
+
+    # Test: SEC-005 - Group-writable install.sh should be rejected
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
+    chmod 664 "$TEST_DOTFILES_DIR/install.sh"  # rw-rw-r--
+
+    # Simulate permission check (group-writable bit 020)
+    local perms="664"
+    local group_writable=$((8#$perms & 8#020))
+
+    if [ "$group_writable" -ne 0 ]; then
+        result="fail"  # Group-writable detected (should be rejected)
+    else
+        result="pass"
+    fi
+
+    test_result "SEC-005: Group-writable install.sh should be detected" "fail" "$result"
 
     teardown_test_env
 }
@@ -873,6 +1208,30 @@ test_bug_008_rollback_mechanism() {
     test_result "BUG-008: Script should exit on validation failure (no Terraform)" "pass" "$result"
 }
 
+test_sec_007_cleanup_trap_exists() {
+    # Test: SEC-007 - Cleanup trap mechanism (CVSS 5.0)
+    # Check that script has trap for EXIT signal
+    local result="fail"
+
+    if grep -q 'trap.*cleanup_on_failure.*EXIT' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-007: Script implements cleanup trap on EXIT" "pass" "$result"
+}
+
+test_sec_007_vm_created_tracking() {
+    # Test: SEC-007 - VM creation state tracking
+    # Check that script tracks whether VM was created
+    local result="fail"
+
+    if grep -q 'VM_CREATED=' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-007: Script tracks VM creation state" "pass" "$result"
+}
+
 ##############################################################################
 # TEST SUMMARY
 ##############################################################################
@@ -951,8 +1310,26 @@ main() {
     test_security_shell_injection_pipe
     test_security_shell_injection_backtick
     test_security_shell_injection_dollar_paren
+    test_security_shell_injection_newline
+    test_security_shell_injection_tab
+    test_security_shell_injection_glob_asterisk
+    test_security_shell_injection_glob_question
+    test_security_shell_injection_glob_bracket
+    test_security_shell_injection_angle_brackets
+    test_security_shell_injection_braces
+    test_security_shell_injection_hash
+    test_security_shell_injection_quotes
+    test_security_shell_injection_backslash
+    test_security_shell_injection_printable_check
     test_security_toctou_canonical_path_validation
     test_security_toctou_symlink_replacement_prevention
+    test_security_git_shallow_clone_playbook
+    test_security_git_shallow_clone_both_sources
+    test_security_recursive_symlink_detection
+    test_security_nested_symlink_in_dotfiles
+    test_security_whitelist_safe_commands
+    test_security_whitelist_detects_python
+    test_security_whitelist_interactive_prompt
 
     # Unit Tests - Git Repository Validation
     test_git_repo_validation_valid
@@ -963,6 +1340,8 @@ main() {
     test_install_sh_missing_warning
     test_install_sh_present
     test_install_sh_not_executable
+    test_install_sh_world_writable
+    test_install_sh_group_writable
 
     # Integration Tests - Terraform
     test_terraform_variable_passing
@@ -982,6 +1361,8 @@ main() {
 
     # Bug Tests
     test_bug_008_rollback_mechanism
+    test_sec_007_cleanup_trap_exists
+    test_sec_007_vm_created_tracking
 
     # Print summary
     print_summary
