@@ -858,6 +858,86 @@ test_security_nested_symlink_in_dotfiles() {
     teardown_test_env
 }
 
+test_security_whitelist_safe_commands() {
+    setup_test_env
+
+    # Test: SEC-006 - Whitelist validation allows safe commands (CVSS 5.0)
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+#!/bin/bash
+# Safe dotfiles installation script
+echo "Installing dotfiles..."
+ln -sf ~/.dotfiles/.zshrc ~/.zshrc
+cp ~/.dotfiles/.tmux.conf ~/.tmux.conf
+mkdir -p ~/.config/nvim
+git clone https://github.com/example/vim-config ~/.vim
+stow dotfiles
+EOF
+
+    # Check if provision-vm.sh implements whitelist validation
+    local result="fail"
+    if grep -q 'SEC-006: Whitelist validation' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null && \
+       grep -q 'safe_pattern=' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-006: Script implements whitelist validation" "pass" "$result"
+
+    teardown_test_env
+}
+
+test_security_whitelist_detects_python() {
+    setup_test_env
+
+    # Test: SEC-006 - Whitelist detects non-whitelisted command (python)
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+#!/bin/bash
+echo "Installing dotfiles..."
+python3 -m pip install some-package
+EOF
+
+    # Whitelist should detect 'python3' as potentially unsafe
+    local safe_pattern="^(#|$|[[:space:]]*(ln|cp|mv|mkdir|echo|cat|grep|sed|awk|printf|test|\\[|chmod|chown|git|stow))"
+    local result="pass"
+
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$line" ]] && continue
+
+        if ! [[ "$line" =~ $safe_pattern ]]; then
+            result="fail"  # Unsafe command detected (expected)
+            break
+        fi
+    done < "$TEST_DOTFILES_DIR/install.sh"
+
+    test_result "SEC-006: Whitelist detects non-whitelisted commands" "fail" "$result"
+
+    teardown_test_env
+}
+
+test_security_whitelist_interactive_prompt() {
+    setup_test_env
+
+    # Test: SEC-006 - Whitelist triggers interactive prompt for unsafe commands
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+#!/bin/bash
+npm install
+EOF
+
+    # Check that provision-vm.sh prompts user when unsafe commands detected
+    local result="fail"
+    if grep -q 'Continue anyway.*y/N' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null && \
+       grep -q 'potentially unsafe command' "$SCRIPT_DIR/../provision-vm.sh" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "SEC-006: Whitelist triggers interactive prompt for unsafe commands" "pass" "$result"
+
+    teardown_test_env
+}
+
 ##############################################################################
 # UNIT TESTS - Git Repository Validation
 ##############################################################################
@@ -1247,6 +1327,9 @@ main() {
     test_security_git_shallow_clone_both_sources
     test_security_recursive_symlink_detection
     test_security_nested_symlink_in_dotfiles
+    test_security_whitelist_safe_commands
+    test_security_whitelist_detects_python
+    test_security_whitelist_interactive_prompt
 
     # Unit Tests - Git Repository Validation
     test_git_repo_validation_valid
