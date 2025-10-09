@@ -786,6 +786,33 @@ test_security_toctou_symlink_replacement_prevention() {
     teardown_test_env
 }
 
+test_security_git_shallow_clone_playbook() {
+    # Test: CVE-4 - Git shallow clone limits history exposure (CVSS 7.5)
+    # Verify Ansible playbook has depth: 1 parameter
+    local result="fail"
+
+    if grep -q "depth: 1" "$SCRIPT_DIR/../ansible/playbook.yml" 2>/dev/null; then
+        result="pass"
+    fi
+
+    test_result "CVE-4: Git shallow clone limits history exposure" "pass" "$result"
+}
+
+test_security_git_shallow_clone_both_sources() {
+    # Test: CVE-4 - Both local and remote dotfiles use shallow clone
+    # Check the git task has depth parameter near the dotfiles repo configuration
+    local playbook="$SCRIPT_DIR/../ansible/playbook.yml"
+    local result="fail"
+
+    # Check that the Clone dotfiles repository task has depth: 1
+    # Need -A10 because there are comment lines and yaml structure before depth
+    if grep -A10 "Clone dotfiles repository" "$playbook" 2>/dev/null | grep -q "depth: 1"; then
+        result="pass"
+    fi
+
+    test_result "CVE-4: Both local and remote use shallow clone" "pass" "$result"
+}
+
 ##############################################################################
 # UNIT TESTS - Git Repository Validation
 ##############################################################################
@@ -1104,6 +1131,8 @@ main() {
     test_security_shell_injection_printable_check
     test_security_toctou_canonical_path_validation
     test_security_toctou_symlink_replacement_prevention
+    test_security_git_shallow_clone_playbook
+    test_security_git_shallow_clone_both_sources
 
     # Unit Tests - Git Repository Validation
     test_git_repo_validation_valid
