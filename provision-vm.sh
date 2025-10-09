@@ -50,6 +50,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TERRAFORM_DIR="$SCRIPT_DIR/terraform"
 ANSIBLE_DIR="$SCRIPT_DIR/ansible"
 
+# SEC-007: Rollback mechanism on failure (CVSS 5.0)
+VM_CREATED=false
+
+cleanup_on_failure() {
+    local exit_code=$?
+    if [ $exit_code -ne 0 ] && [ "$VM_CREATED" = true ]; then
+        echo "" >&2
+        echo -e "${YELLOW}[WARNING] Provisioning failed, cleaning up VM...${NC}" >&2
+        cd "$TERRAFORM_DIR" && terraform destroy -auto-approve "${TERRAFORM_VARS[@]}" 2>/dev/null || true
+        echo -e "${GREEN}[CLEANUP] VM resources destroyed${NC}" >&2
+    fi
+}
+
+trap cleanup_on_failure EXIT
+
 # SSH validation functions
 validate_ssh_directory_permissions() {
     local ssh_dir="$HOME/.ssh"
@@ -445,6 +460,9 @@ if ! terraform apply -auto-approve "${TERRAFORM_VARS[@]}"; then
     echo "Check terraform logs above for details" >&2
     exit 1
 fi
+
+# Mark VM as created for cleanup trap
+VM_CREATED=true
 
 echo -e "${GREEN}[SUCCESS] Terraform apply completed${NC}"
 
