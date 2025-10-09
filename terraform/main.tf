@@ -49,6 +49,12 @@ variable "ssh_public_key_file" {
   default     = "~/.ssh/vm_key.pub"
 }
 
+variable "dotfiles_local_path" {
+  description = "Local path to dotfiles for testing (optional)"
+  type        = string
+  default     = ""
+}
+
 # Ubuntu cloud image
 resource "libvirt_volume" "ubuntu_base" {
   name   = "${var.vm_name}-base.qcow2"
@@ -116,8 +122,9 @@ output "vm_ip" {
 # Generate Ansible inventory file
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/inventory.tpl", {
-    vm_ip   = length(libvirt_domain.vm.network_interface[0].addresses) > 0 ? libvirt_domain.vm.network_interface[0].addresses[0] : ""
-    vm_user = "mr"
+    vm_ip               = length(libvirt_domain.vm.network_interface[0].addresses) > 0 ? libvirt_domain.vm.network_interface[0].addresses[0] : ""
+    vm_user             = "mr"
+    dotfiles_local_path = var.dotfiles_local_path
   })
   filename = "${path.module}/../ansible/inventory.ini"
 }

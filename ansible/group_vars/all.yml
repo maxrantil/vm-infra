@@ -15,6 +15,14 @@
 # dotfiles_repo: "git@github.com:your-username/dotfiles.git"
 # dotfiles_dir: "{{ user_home }}/.dotfiles"
 
+# TEST MODE: Local dotfiles path (set via provision-vm.sh --test-dotfiles)
+# When testing dotfiles changes, use:
+#   ./provision-vm.sh test-vm --test-dotfiles /path/to/local/dotfiles
+# This allows testing uncommitted changes without pushing to GitHub.
+# The playbook will automatically use file:// URL instead of GitHub.
+# This variable is set automatically via Terraform/inventory - do not set manually.
+# dotfiles_local_path: "/absolute/path/to/dotfiles"  # Set automatically via flag
+
 # Neovim directories
 # nvim_undo_dir: "{{ user_home }}/.cache/nvim/undo"
 # nvim_autoload_dir: "{{ user_home }}/.config/nvim/autoload"
