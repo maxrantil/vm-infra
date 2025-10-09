@@ -250,6 +250,27 @@ validate_install_sh() {
         return 0
     fi
 
+    # SEC-005: Permission validation (CVSS 4.0)
+    # Check for world-writable or group-writable permissions
+    local perms
+    perms=$(stat -c "%a" "$install_script" 2>/dev/null || echo "000")
+
+    # Check world-writable bit (002)
+    if [ $((8#$perms & 8#002)) -ne 0 ]; then
+        echo -e "${RED}[ERROR] install.sh is world-writable (insecure permissions)${NC}" >&2
+        echo "Permissions: $perms" >&2
+        echo "Fix with: chmod 644 $install_script" >&2
+        exit 1
+    fi
+
+    # Check group-writable bit (020)
+    if [ $((8#$perms & 8#020)) -ne 0 ]; then
+        echo -e "${RED}[ERROR] install.sh is group-writable (insecure permissions)${NC}" >&2
+        echo "Permissions: $perms" >&2
+        echo "Fix with: chmod 644 $install_script" >&2
+        exit 1
+    fi
+
     # CVE-2: install.sh content inspection (CVSS 9.0)
     # SEC-002: Expanded patterns to prevent evasion (CVSS 7.5)
     local dangerous_patterns=(
