@@ -1,0 +1,10 @@
+# ABOUTME: Blocks PRs containing AI agent/tool attribution in commits
+name: Block AI Attribution
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-attribution:
+    uses: maxrantil/.github/.github/workflows/block-ai-attribution-reusable.yml@master
