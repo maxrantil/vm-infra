@@ -65,7 +65,7 @@ cleanup_on_failure() {
     if [ $exit_code -ne 0 ] && [ "$VM_CREATED" = true ]; then
         echo "" >&2
         echo -e "${YELLOW}[WARNING] Provisioning failed, cleaning up VM...${NC}" >&2
-        cd "$TERRAFORM_DIR" && terraform destroy -auto-approve "${TERRAFORM_VARS[@]}" 2>/dev/null || true
+        cd "$TERRAFORM_DIR" && terraform destroy -auto-approve "${TERRAFORM_VARS[@]}" 2> /dev/null || true
         echo -e "${GREEN}[CLEANUP] VM resources destroyed${NC}" >&2
     fi
 }
@@ -76,7 +76,7 @@ trap cleanup_on_failure EXIT
 validate_ssh_directory_permissions() {
     local ssh_dir="$HOME/.ssh"
     local ssh_dir_perms
-    ssh_dir_perms=$(stat -c "%a" "$ssh_dir" 2>/dev/null || echo "")
+    ssh_dir_perms=$(stat -c "%a" "$ssh_dir" 2> /dev/null || echo "")
 
     if [ -z "$ssh_dir_perms" ]; then
         echo -e "${RED}[ERROR] SSH directory not found${NC}" >&2
@@ -95,7 +95,7 @@ validate_private_key_permissions() {
     local key_path="$1"
     local key_name="$2"
     local key_perms
-    key_perms=$(stat -c "%a" "$key_path" 2>/dev/null || echo "")
+    key_perms=$(stat -c "%a" "$key_path" 2> /dev/null || echo "")
 
     if [ "$key_perms" != "600" ] && [ "$key_perms" != "400" ]; then
         echo -e "${RED}[ERROR] Insecure permissions on $key_name: $key_perms${NC}" >&2
@@ -109,7 +109,7 @@ validate_key_content() {
     local key_path="$1"
     local key_name="$2"
 
-    if ! ssh-keygen -l -f "$key_path" >/dev/null 2>&1; then
+    if ! ssh-keygen -l -f "$key_path" > /dev/null 2>&1; then
         echo -e "${RED}[ERROR] Invalid or corrupt $key_name${NC}" >&2
         echo "Regenerate with: ssh-keygen -t ed25519 -f <key-path> -C 'description'" >&2
         exit 1
@@ -128,7 +128,7 @@ validate_public_key_exists() {
     fi
 
     # Validate public key content format
-    if ! ssh-keygen -l -f "$pub_key_path" >/dev/null 2>&1; then
+    if ! ssh-keygen -l -f "$pub_key_path" > /dev/null 2>&1; then
         echo -e "${RED}[ERROR] Invalid or corrupt public key for $key_name${NC}" >&2
         echo "Regenerate keypair with: ssh-keygen -t ed25519 -f <key-path> -C 'description'" >&2
         exit 1
@@ -177,10 +177,10 @@ validate_dotfiles_no_symlinks() {
 
     # SEC-004: Recursive symlink detection (CVSS 5.5)
     # Check for symlinked files within the directory
-    if find "$path" -type l -print -quit 2>/dev/null | grep -q .; then
+    if find "$path" -type l -print -quit 2> /dev/null | grep -q .; then
         echo -e "${RED}[ERROR] Symlinked files detected in dotfiles directory${NC}" >&2
         echo "The following symlinks were found:" >&2
-        find "$path" -type l 2>/dev/null >&2
+        find "$path" -type l 2> /dev/null >&2
         echo "Symlinks within dotfiles could redirect to malicious files." >&2
         exit 1
     fi
@@ -201,9 +201,9 @@ validate_dotfiles_canonical_path() {
     fi
 
     # Additional canonical path check using realpath if available
-    if command -v realpath >/dev/null 2>&1; then
+    if command -v realpath > /dev/null 2>&1; then
         local canonical_path
-        canonical_path=$(realpath --no-symlinks "$path" 2>/dev/null)
+        canonical_path=$(realpath --no-symlinks "$path" 2> /dev/null)
 
         if [ -z "$canonical_path" ]; then
             echo -e "${RED}[ERROR] Unable to resolve canonical path${NC}" >&2
@@ -251,7 +251,7 @@ validate_dotfiles_git_repo() {
 
     # BUG-006: Git repository validation
     if [ -d "$path/.git" ]; then
-        if ! git -C "$path" rev-parse --git-dir >/dev/null 2>&1; then
+        if ! git -C "$path" rev-parse --git-dir > /dev/null 2>&1; then
             echo -e "${RED}[ERROR] Invalid git repository in dotfiles path${NC}" >&2
             exit 1
         fi
@@ -275,7 +275,7 @@ validate_install_sh() {
     # SEC-005: Permission validation (CVSS 4.0)
     # Check for world-writable or group-writable permissions
     local perms
-    perms=$(stat -c "%a" "$install_script" 2>/dev/null || echo "000")
+    perms=$(stat -c "%a" "$install_script" 2> /dev/null || echo "000")
 
     # Check world-writable bit (002)
     if [ $((8#$perms & 8#002)) -ne 0 ]; then
@@ -344,7 +344,7 @@ validate_install_sh() {
     )
 
     for pattern in "${dangerous_patterns[@]}"; do
-        if grep -qE "$pattern" "$install_script" 2>/dev/null; then
+        if grep -qE "$pattern" "$install_script" 2> /dev/null; then
             echo -e "${RED}[ERROR] Dangerous pattern detected in install.sh: $pattern${NC}" >&2
             echo "For security, cannot proceed with potentially malicious install script." >&2
             exit 1
@@ -471,7 +471,7 @@ validate_public_key_exists "$HOME/.ssh/id_ed25519" "GitHub key"
 
 # Check for required tools
 for cmd in terraform ansible-playbook virsh ssh; do
-    if ! command -v "$cmd" >/dev/null 2>&1; then
+    if ! command -v "$cmd" > /dev/null 2>&1; then
         echo -e "${RED}[ERROR] Required tool not found: $cmd${NC}" >&2
         exit 1
     fi
@@ -516,13 +516,13 @@ echo -e "${GREEN}[SUCCESS] Terraform apply completed${NC}"
 echo ""
 echo -e "${YELLOW}Waiting for VM IP address...${NC}"
 for _ in {1..10}; do
-    VM_IP=$(terraform output -raw vm_ip 2>/dev/null || echo "pending")
+    VM_IP=$(terraform output -raw vm_ip 2> /dev/null || echo "pending")
     if [ "$VM_IP" != "pending" ] && [ -n "$VM_IP" ]; then
         break
     fi
     sleep 2
-    terraform refresh "${TERRAFORM_VARS[@]}" >/dev/null 2>&1
-    terraform apply -auto-approve "${TERRAFORM_VARS[@]}" >/dev/null 2>&1
+    terraform refresh "${TERRAFORM_VARS[@]}" > /dev/null 2>&1
+    terraform apply -auto-approve "${TERRAFORM_VARS[@]}" > /dev/null 2>&1
 done
 
 if [ "$VM_IP" = "pending" ] || [ -z "$VM_IP" ]; then
@@ -542,7 +542,7 @@ echo ""
 echo -e "${YELLOW}Step 2: Waiting for cloud-init to complete...${NC}"
 CLOUD_INIT_SUCCESS=false
 for _ in {1..30}; do
-    if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=2 mr@"$VM_IP" 'cloud-init status --wait' 2>/dev/null; then
+    if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=2 mr@"$VM_IP" 'cloud-init status --wait' 2> /dev/null; then
         CLOUD_INIT_SUCCESS=true
         break
     fi
@@ -566,7 +566,7 @@ echo ""
 echo -e "${YELLOW}Step 3: Verifying SSH connectivity...${NC}"
 
 # Verify SSH connectivity before Ansible
-if ! ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=5 mr@"$VM_IP" 'echo ok' >/dev/null 2>&1; then
+if ! ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=5 mr@"$VM_IP" 'echo ok' > /dev/null 2>&1; then
     echo -e "${RED}[ERROR] Cannot connect to VM at $VM_IP${NC}" >&2
     echo "" >&2
     echo "SSH connectivity test failed. Troubleshooting:" >&2
