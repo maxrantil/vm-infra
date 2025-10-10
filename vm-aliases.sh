@@ -131,7 +131,7 @@ alias vmplan='cd ~/vm-infrastructure/terraform && terraform plan'
 # Example: vmcp ~/file.txt /home/mr/
 vmcp() {
     local vm_ip
-    vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2>/dev/null)
+    vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2> /dev/null)
     if [ "$vm_ip" = "pending" ] || [ -z "$vm_ip" ]; then
         echo "Error: No VM IP found"
         return 1
@@ -144,7 +144,7 @@ vmcp() {
 # Example: vmget /home/mr/file.txt ~/
 vmget() {
     local vm_ip
-    vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2>/dev/null)
+    vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2> /dev/null)
     if [ "$vm_ip" = "pending" ] || [ -z "$vm_ip" ]; then
         echo "Error: No VM IP found"
         return 1
@@ -157,7 +157,7 @@ vmget() {
 # Example: vmrun "ls -la"
 vmrun() {
     local vm_ip
-    vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2>/dev/null)
+    vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2> /dev/null)
     if [ "$vm_ip" = "pending" ] || [ -z "$vm_ip" ]; then
         echo "Error: No VM IP found"
         return 1
@@ -170,7 +170,7 @@ vmrun() {
 # Example: vmport 8080 3000  # Forward VM's 8080 to localhost:3000
 vmport() {
     local vm_ip
-    vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2>/dev/null)
+    vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2> /dev/null)
     if [ "$vm_ip" = "pending" ] || [ -z "$vm_ip" ]; then
         echo "Error: No VM IP found"
         return 1
