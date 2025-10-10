@@ -1,0 +1,10 @@
+# ABOUTME: Blocks PRs with AI agent/tool attribution in PR body/description
+name: PR Body AI Attribution Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  check-pr-body:
+    uses: maxrantil/.github/.github/workflows/pr-body-ai-attribution-check-reusable.yml@feat/add-pr-body-ai-attribution-check
