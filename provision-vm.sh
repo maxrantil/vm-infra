@@ -1,6 +1,6 @@
 #!/bin/bash
 # ABOUTME: One-command VM provisioning script using Terraform and Ansible
-# Usage: ./provision-vm.sh <vm-name> [memory] [vcpus] [--test-dotfiles <path>]
+# Usage: ./provision-vm.sh <vm-name> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]
 
 set -e
 
@@ -22,15 +22,19 @@ while [[ $# -gt 0 ]]; do
         --test-dotfiles)
             if [ -z "${2:-}" ]; then
                 echo -e "${RED}[ERROR] --test-dotfiles flag requires a path argument${NC}" >&2
-                echo "Usage: $0 <vm-name> [memory] [vcpus] [--test-dotfiles <path>]" >&2
+                echo "Usage: $0 <vm-name> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]" >&2
                 exit 1
             fi
             DOTFILES_LOCAL_PATH="$2"
             shift 2
             ;;
+        --dry-run)
+            TEST_MODE=1
+            shift
+            ;;
         -*)
             echo -e "${RED}[ERROR] Unknown flag: $1${NC}" >&2
-            echo "Usage: $0 <vm-name> [memory] [vcpus] [--test-dotfiles <path>]" >&2
+            echo "Usage: $0 <vm-name> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]" >&2
             exit 1
             ;;
         *)
@@ -426,9 +430,9 @@ else
 fi
 echo ""
 
-# Exit early in test mode (after validation but before VM creation)
+# Exit early in test mode or dry-run (after validation but before VM creation)
 if [ "$TEST_MODE" = "1" ]; then
-    echo -e "${YELLOW}[TEST MODE] Validation complete, skipping VM creation${NC}"
+    echo -e "${YELLOW}[DRY RUN] Validation complete, skipping VM creation${NC}"
     exit 0
 fi
 
