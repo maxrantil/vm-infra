@@ -22,7 +22,7 @@ echo ""
 cd "$TERRAFORM_DIR"
 
 # Check if VM exists
-if ! terraform show 2>/dev/null | grep -q "vm_name.*$VM_NAME"; then
+if ! terraform show 2> /dev/null | grep -q "vm_name.*$VM_NAME"; then
     echo -e "${RED}VM '$VM_NAME' not found in Terraform state${NC}"
     exit 1
 fi
