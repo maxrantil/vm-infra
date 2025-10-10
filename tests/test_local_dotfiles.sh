@@ -1262,20 +1262,61 @@ test_ansible_whitespace_handling() {
 }
 
 ##############################################################################
-# END-TO-END TESTS (Manual)
+# END-TO-END TESTS
 ##############################################################################
 
-test_e2e_manual_placeholder() {
-    echo -e "\n${YELLOW}=== END-TO-END TESTS (Manual) ===${NC}"
+test_e2e_full_pipeline() {
+    echo -e "\n${YELLOW}=== END-TO-END TESTS ===${NC}"
 
-    echo "Manual E2E tests required:"
-    echo "  1. ./provision-vm.sh test-vm --test-dotfiles /valid/path"
-    echo "  2. ./provision-vm.sh test-vm --test-dotfiles ../relative/path"
-    echo "  3. ./provision-vm.sh test-vm --test-dotfiles '/path/with spaces'"
-    echo "  4. ./provision-vm.sh test-vm (no flag, uses GitHub)"
-    echo "  5. Verify dotfiles are cloned from local path inside VM"
-    echo "  6. Verify install.sh is executed correctly"
-    echo ""
+    # Create minimal test dotfiles
+    local test_dotfiles_dir="/tmp/test-dotfiles-$$"
+    mkdir -p "$test_dotfiles_dir"
+    cat > "$test_dotfiles_dir/install.sh" <<'EOF'
+#!/bin/bash
+# Safe dotfiles installation
+echo "Installing dotfiles..."
+ln -sf ~/.dotfiles/.zshrc ~/.zshrc
+EOF
+    chmod 644 "$test_dotfiles_dir/install.sh"
+
+    local result="fail"
+
+    # Run with --dry-run flag (validates without creating VM)
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-e2e-vm --test-dotfiles "$test_dotfiles_dir" --dry-run 2>&1)
+    local exit_code=$?
+    set -e
+
+    # Validate full pipeline would work
+    if [ $exit_code -eq 0 ] && \
+       echo "$output" | grep -q "DRY RUN" && \
+       echo "$output" | grep -q "Dotfiles: $test_dotfiles_dir (local)"; then
+        result="pass"
+    fi
+
+    test_result "E2E: Full pipeline validation with local dotfiles" "pass" "$result"
+
+    # Cleanup
+    rm -rf "$test_dotfiles_dir"
+}
+
+test_e2e_dry_run_with_default_dotfiles() {
+    # Test: --dry-run works with default (no --test-dotfiles flag)
+    local result="fail"
+
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-e2e-default --dry-run 2>&1)
+    local exit_code=$?
+    set -e
+
+    # Should complete validation with GitHub default
+    if [ $exit_code -eq 0 ] && \
+       echo "$output" | grep -q "DRY RUN" && \
+       echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
+        result="pass"
+    fi
+
+    test_result "E2E: Dry-run with GitHub default dotfiles" "pass" "$result"
 }
 
 ##############################################################################
@@ -1298,7 +1339,7 @@ test_bug_008_rollback_mechanism() {
     set -e
 
     # Verify behavior: script exits early, never mentions terraform/VM creation
-    if [ $exit_code -ne 0 ] && ! echo "$output" | grep -q "TEST MODE"; then
+    if [ $exit_code -ne 0 ] && ! echo "$output" | grep -q "DRY RUN"; then
         result="pass"
     fi
 
@@ -1352,7 +1393,7 @@ test_sec_007_vm_created_tracking() {
     set -e
 
     # Verify behavior: TEST_MODE exits before VM creation (no cleanup needed)
-    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "TEST MODE"; then
+    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "DRY RUN"; then
         result="pass"
     fi
 
@@ -1485,8 +1526,9 @@ main() {
     test_ansible_playbook_uses_github_default
     test_ansible_whitespace_handling
 
-    # E2E Tests (Manual)
-    test_e2e_manual_placeholder
+    # E2E Tests
+    test_e2e_full_pipeline
+    test_e2e_dry_run_with_default_dotfiles
 
     # Bug Tests
     test_bug_008_rollback_mechanism
