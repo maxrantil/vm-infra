@@ -7,4 +7,4 @@ on:
 
 jobs:
   check-pr-body:
-    uses: maxrantil/.github/.github/workflows/pr-body-ai-attribution-check-reusable.yml@feat/add-pr-body-ai-attribution-check
+    uses: maxrantil/.github/.github/workflows/pr-body-ai-attribution-check-reusable.yml@master
