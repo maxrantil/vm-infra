@@ -14,4 +14,4 @@ jobs:
     uses: maxrantil/.github/.github/workflows/shell-quality-reusable.yml@master
     with:
       shellcheck-severity: 'warning'
-      shfmt-options: '-d -i 2 -ci'
+      shfmt-options: '-d -i 4 -ci -sr'
