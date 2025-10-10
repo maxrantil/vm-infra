@@ -1,0 +1,10 @@
+# ABOUTME: Conventional commit format validation
+name: Conventional Commit Check
+
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  check-commits:
+    uses: maxrantil/.github/.github/workflows/conventional-commit-check-reusable.yml@master
