@@ -72,8 +72,8 @@ test_playbook_has_vars_section() {
 
     if [ ${#missing_vars[@]} -gt 0 ]; then
         fail "All required variables should be defined" \
-             "All vars: ${required_vars[*]}" \
-             "Missing: ${missing_vars[*]}"
+            "All vars: ${required_vars[*]}" \
+            "Missing: ${missing_vars[*]}"
         return
     fi
 
@@ -94,8 +94,8 @@ test_no_hardcoded_home_paths() {
 
     if [ -n "$hardcoded_paths" ]; then
         fail "No hardcoded /home/mr paths in tasks" \
-             "All paths use variables" \
-             "Found hardcoded paths: $hardcoded_paths"
+            "All paths use variables" \
+            "Found hardcoded paths: $hardcoded_paths"
         return
     fi
 
@@ -111,8 +111,8 @@ test_variables_use_jinja2() {
         : # pattern found
     else
         fail "user_home should use ansible_user variable" \
-             'user_home: "/home/{{ ansible_user }}"' \
-             "Pattern not found"
+            'user_home: "/home/{{ ansible_user }}"' \
+            "Pattern not found"
         return
     fi
 
@@ -121,8 +121,8 @@ test_variables_use_jinja2() {
         : # pattern found
     else
         fail "ssh_key_path should use user_home variable" \
-             'ssh_key_path: "{{ user_home }}/.ssh/id_ed25519"' \
-             "Pattern not found"
+            'ssh_key_path: "{{ user_home }}/.ssh/id_ed25519"' \
+            "Pattern not found"
         return
     fi
 
@@ -141,8 +141,8 @@ test_copy_tasks_use_variables() {
         : # variable found
     else
         fail "Private key copy should use ssh_key_path variable" \
-             'dest: "{{ ssh_key_path }}"' \
-             "$priv_key_line"
+            'dest: "{{ ssh_key_path }}"' \
+            "$priv_key_line"
         return
     fi
 
@@ -154,8 +154,8 @@ test_copy_tasks_use_variables() {
         : # variable found
     else
         fail "Public key copy should use ssh_pub_key_path variable" \
-             'dest: "{{ ssh_pub_key_path }}"' \
-             "$pub_key_line"
+            'dest: "{{ ssh_pub_key_path }}"' \
+            "$pub_key_line"
         return
     fi
 
@@ -174,8 +174,8 @@ test_git_clone_uses_variables() {
         : # variable found
     else
         fail "Git clone should use dotfiles_repo variable" \
-             'repo: "{{ dotfiles_repo }}"' \
-             "$(echo "$clone_section" | grep "repo:")"
+            'repo: "{{ dotfiles_repo }}"' \
+            "$(echo "$clone_section" | grep "repo:")"
         return
     fi
 
@@ -184,8 +184,8 @@ test_git_clone_uses_variables() {
         : # variable found
     else
         fail "Git clone should use dotfiles_dir variable" \
-             'dest: "{{ dotfiles_dir }}"' \
-             "$(echo "$clone_section" | grep "dest:")"
+            'dest: "{{ dotfiles_dir }}"' \
+            "$(echo "$clone_section" | grep "dest:")"
         return
     fi
 
@@ -202,8 +202,8 @@ test_group_vars_documentation() {
         : # file exists
     else
         fail "group_vars/all.yml should exist" \
-             "File exists with documented variables" \
-             "File not found"
+            "File exists with documented variables" \
+            "File not found"
         return
     fi
 
@@ -212,8 +212,8 @@ test_group_vars_documentation() {
         : # documentation found
     else
         fail "group_vars/all.yml should have override documentation" \
-             "Documentation comments present" \
-             "Documentation missing"
+            "Documentation comments present" \
+            "Documentation missing"
         return
     fi
 
@@ -227,14 +227,14 @@ test_readme_documents_variables() {
     local readme_path="$PROJECT_ROOT/README.md"
 
     # Check for any of the key documentation indicators
-    if grep -q "Ansible variables" "$readme_path" || \
-       grep -q "group_vars" "$readme_path" || \
-       grep -q "dotfiles_repo" "$readme_path"; then
+    if grep -q "Ansible variables" "$readme_path" ||
+        grep -q "group_vars" "$readme_path" ||
+        grep -q "dotfiles_repo" "$readme_path"; then
         pass "README documents variable override process"
     else
         fail "README should document variable overrides" \
-             "Documentation about ansible variables and group_vars" \
-             "Documentation not found"
+            "Documentation about ansible variables and group_vars" \
+            "Documentation not found"
     fi
 }
 

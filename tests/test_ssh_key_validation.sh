@@ -12,14 +12,14 @@ NC='\033[0m'
 validate_ssh_directory_permissions() {
     local ssh_dir="$HOME/.ssh"
     local ssh_dir_perms
-    ssh_dir_perms=$(stat -c "%a" "$ssh_dir" 2>/dev/null || echo "")
+    ssh_dir_perms=$(stat -c "%a" "$ssh_dir" 2> /dev/null || echo "")
 
     if [ -z "$ssh_dir_perms" ]; then
         return 1
     fi
 
     if [ "$ssh_dir_perms" != "700" ]; then
-        chmod 700 "$ssh_dir" 2>/dev/null || return 1
+        chmod 700 "$ssh_dir" 2> /dev/null || return 1
         echo "fixed"
         return 0
     fi
@@ -29,7 +29,7 @@ validate_ssh_directory_permissions() {
 validate_private_key_permissions() {
     local key_path="$1"
     local key_perms
-    key_perms=$(stat -c "%a" "$key_path" 2>/dev/null || echo "")
+    key_perms=$(stat -c "%a" "$key_path" 2> /dev/null || echo "")
 
     if [ "$key_perms" != "600" ] && [ "$key_perms" != "400" ]; then
         return 1
@@ -40,7 +40,7 @@ validate_private_key_permissions() {
 validate_key_content() {
     local key_path="$1"
 
-    if ! ssh-keygen -l -f "$key_path" >/dev/null 2>&1; then
+    if ! ssh-keygen -l -f "$key_path" > /dev/null 2>&1; then
         return 1
     fi
     return 0
@@ -125,7 +125,7 @@ test_private_key_permissions_600() {
     setup_test_env
 
     # Create a test key with wrong permissions
-    ssh-keygen -t ed25519 -f "$TEST_SSH_DIR/vm_key" -N "" -C "test" >/dev/null 2>&1
+    ssh-keygen -t ed25519 -f "$TEST_SSH_DIR/vm_key" -N "" -C "test" > /dev/null 2>&1
     chmod 644 "$TEST_SSH_DIR/vm_key"
 
     # Test validation function
@@ -140,7 +140,7 @@ test_private_key_permissions_400() {
     setup_test_env
 
     # Create a test key with correct permissions (400)
-    ssh-keygen -t ed25519 -f "$TEST_SSH_DIR/vm_key" -N "" -C "test" >/dev/null 2>&1
+    ssh-keygen -t ed25519 -f "$TEST_SSH_DIR/vm_key" -N "" -C "test" > /dev/null 2>&1
     chmod 400 "$TEST_SSH_DIR/vm_key"
 
     # Test validation function
@@ -170,7 +170,7 @@ test_valid_key_content() {
     setup_test_env
 
     # Create a valid key
-    ssh-keygen -t ed25519 -f "$TEST_SSH_DIR/vm_key" -N "" -C "test" >/dev/null 2>&1
+    ssh-keygen -t ed25519 -f "$TEST_SSH_DIR/vm_key" -N "" -C "test" > /dev/null 2>&1
     chmod 600 "$TEST_SSH_DIR/vm_key"
 
     # Test validation function
@@ -185,7 +185,7 @@ test_public_key_exists() {
     setup_test_env
 
     # Create private key but delete public key
-    ssh-keygen -t ed25519 -f "$TEST_SSH_DIR/vm_key" -N "" -C "test" >/dev/null 2>&1
+    ssh-keygen -t ed25519 -f "$TEST_SSH_DIR/vm_key" -N "" -C "test" > /dev/null 2>&1
     rm -f "$TEST_SSH_DIR/vm_key.pub"
     chmod 600 "$TEST_SSH_DIR/vm_key"
 
@@ -201,7 +201,7 @@ test_public_key_present() {
     setup_test_env
 
     # Create complete keypair
-    ssh-keygen -t ed25519 -f "$TEST_SSH_DIR/vm_key" -N "" -C "test" >/dev/null 2>&1
+    ssh-keygen -t ed25519 -f "$TEST_SSH_DIR/vm_key" -N "" -C "test" > /dev/null 2>&1
     chmod 600 "$TEST_SSH_DIR/vm_key"
 
     # Test validation function
