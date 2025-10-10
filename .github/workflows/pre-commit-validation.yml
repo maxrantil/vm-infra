@@ -1,0 +1,10 @@
+# ABOUTME: Validates pre-commit hooks run successfully in CI
+name: Pre-commit Validation
+
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  pre-commit:
+    uses: maxrantil/.github/.github/workflows/pre-commit-check-reusable.yml@master
