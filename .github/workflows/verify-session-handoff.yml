@@ -1,0 +1,11 @@
+# ABOUTME: Session handoff documentation verification
+name: Session Handoff Verification
+
+on:
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  verify:
+    uses: maxrantil/.github/.github/workflows/session-handoff-check-reusable.yml@master

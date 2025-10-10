@@ -1,0 +1,10 @@
+# ABOUTME: PR title format validation (conventional format)
+name: PR Title Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  check-title:
+    uses: maxrantil/.github/.github/workflows/pr-title-check-reusable.yml@master
