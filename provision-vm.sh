@@ -10,6 +10,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Test mode: Skip VM creation for testing (set via TEST_MODE=1 environment variable)
+TEST_MODE="${TEST_MODE:-0}"
+
 # Parse arguments
 DOTFILES_LOCAL_PATH=""
 POSITIONAL_ARGS=()
@@ -422,6 +425,12 @@ else
     echo "Dotfiles: GitHub (default)"
 fi
 echo ""
+
+# Exit early in test mode (after validation but before VM creation)
+if [ "$TEST_MODE" = "1" ]; then
+    echo -e "${YELLOW}[TEST MODE] Validation complete, skipping VM creation${NC}"
+    exit 0
+fi
 
 # Check prerequisites
 echo -e "${YELLOW}Checking prerequisites...${NC}"
