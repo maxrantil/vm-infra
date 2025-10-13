@@ -261,9 +261,10 @@
       become_user: "{{ ansible_user }}"
 
     # Install tmux plugin manager (TPM)
+    # Security: Use HTTPS for public repository (no deploy key needed)
     - name: Clone TPM (tmux plugin manager)
       git:
-        repo: git@github.com:tmux-plugins/tpm
+        repo: https://github.com/tmux-plugins/tpm
         dest: "{{ tmux_plugins_dir }}"
         clone: yes
         update: yes
