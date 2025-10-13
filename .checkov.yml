@@ -1,0 +1,92 @@
+# Checkov Configuration - Security Policy Management
+# Created: 2025-10-13
+# Review: Quarterly (January, April, July, October)
+# Owner: Doctor Hubert
+
+# ============================================
+# Framework Configuration
+# ============================================
+framework:
+  - terraform
+  - ansible
+  - secrets
+
+# Scan only relevant directories
+directory:
+  - terraform
+  - ansible
+  - cloud-init
+
+# ============================================
+# Exception Management
+# ============================================
+skip-check:
+  # -------------------------------------------
+  # Terraform Libvirt Provider - Local VMs
+  # -------------------------------------------
+
+  # CKV_TF_1: Terraform outputs missing description
+  # Justification: Outputs are self-explanatory (vm_ip)
+  # Risk Level: LOW (documentation quality)
+  # CVSS: N/A
+  # Review Date: 2026-01-13
+  - CKV_TF_1
+
+  # CKV2_GCP_1: Unencrypted compute disks
+  # Justification: Local libvirt, not GCP
+  # Risk Level: INFORMATIONAL (not applicable)
+  # CVSS: N/A
+  # Compensating Control: Host LUKS encryption available
+  # Review Date: 2026-01-13
+  - CKV2_GCP_1
+
+  # CKV_GCP_38: VM disk encryption with CMEK
+  # Justification: Local libvirt, not GCP
+  # Risk Level: INFORMATIONAL
+  # CVSS: N/A
+  # Review Date: 2026-01-13
+  - CKV_GCP_38
+
+  # -------------------------------------------
+  # Cloud-init Configuration
+  # -------------------------------------------
+
+  # CKV_CLOUDINIT_1: Password authentication enabled
+  # Justification: ALREADY DISABLED in user-data.yaml (ssh_pwauth: false)
+  # Risk Level: NONE (false positive)
+  # CVSS: N/A
+  # Evidence: Line 33 of cloud-init/user-data.yaml
+  # Review Date: 2026-01-13
+  # Note: Should not trigger, kept for reference
+
+# ============================================
+# Output Configuration
+# ============================================
+compact: true
+quiet: false
+output: cli
+
+# ============================================
+# Severity Filtering
+# ============================================
+# Only report MEDIUM and above (filter out LOW/INFO)
+# Uncomment after baseline established:
+# hard-fail-on:
+#   - HIGH
+#   - CRITICAL
+
+# ============================================
+# Documentation
+# ============================================
+# Exception Categories:
+# - INFORMATIONAL: Not applicable to infrastructure type
+# - LOW: Minor issues with documented compensating controls
+# - MEDIUM: Accepted risks with business justification
+# - HIGH/CRITICAL: NEVER accept without explicit security review
+#
+# Review Process:
+# 1. Quarterly review of all exceptions
+# 2. Remove obsolete exceptions
+# 3. Re-evaluate risk ratings based on threat landscape
+# 4. Update compensating controls as needed
+# 5. Document changes in git commit messages
