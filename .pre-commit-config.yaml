@@ -67,7 +67,7 @@ repos:
   # SHELL SCRIPT LINTING (if repo has shell scripts)
   # =============================================================================
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0
+    rev: v0.9.0.6
     hooks:
       - id: shellcheck
         name: ShellCheck bash scripts
@@ -244,18 +244,18 @@ repos:
 # =============================================================================
 # TERRAFORM/INFRASTRUCTURE
 # =============================================================================
-- repo: https://github.com/antonbabenko/pre-commit-terraform
-  rev: v1.96.0
-  hooks:
-    - id: terraform_fmt
-      name: Terraform format
-      description: Format Terraform files consistently
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.96.0
+    hooks:
+      - id: terraform_fmt
+        name: Terraform format
+        description: Format Terraform files consistently
 
-    - id: terraform_validate
-      name: Terraform validate
-      description: Validate Terraform configuration
-      args:
-        - --hook-config=--path=terraform/
+      - id: terraform_validate
+        name: Terraform validate
+        description: Validate Terraform configuration
+        args:
+          - --hook-config=--path=terraform/
 
 # =============================================================================
 # PROJECT-SPECIFIC HOOKS (Customize for your repo)

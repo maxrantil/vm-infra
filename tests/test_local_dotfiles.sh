@@ -875,8 +875,8 @@ test_security_git_shallow_clone_both_sources() {
     # GREEN PHASE: Check for correct output - both modes validate successfully
     # Both local and remote paths use same ansible playbook with shallow clone
     if [ $exit_code_local -eq 0 ] && [ $exit_code_remote -eq 0 ] &&
-       echo "$output_local" | grep -q "DRY RUN" &&
-       echo "$output_remote" | grep -q "DRY RUN"; then
+        echo "$output_local" | grep -q "DRY RUN" &&
+        echo "$output_remote" | grep -q "DRY RUN"; then
         result="pass"
     fi
 
