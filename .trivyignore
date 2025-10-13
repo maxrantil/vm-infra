@@ -1,0 +1,50 @@
+# Trivy Ignore File - Security Baseline Exceptions
+# Created: 2025-10-13
+# Review: Quarterly (January, April, July, October)
+# Owner: Doctor Hubert
+
+# ============================================
+# Local VM Infrastructure - Accepted Risks
+# ============================================
+
+# DS002: Root user in containers
+# Justification: Not applicable - libvirt VMs, not containers
+# Risk Level: INFORMATIONAL
+# CVSS: N/A
+# Review Date: 2026-01-13
+DS002
+
+# AVD-GCP-0001: Unencrypted disk volumes
+# Justification: Local KVM environment, no cloud storage
+# Risk Level: LOW (local threat model)
+# CVSS: 3.0 (requires physical access)
+# Mitigation: Host-level disk encryption (LUKS) available if needed
+# Review Date: 2026-01-13
+AVD-GCP-0001
+
+# AVD-AWS-0001: Unencrypted EBS volumes
+# Justification: Not using AWS/cloud resources
+# Risk Level: INFORMATIONAL
+# CVSS: N/A
+# Review Date: 2026-01-13
+AVD-AWS-0001
+
+# ============================================
+# Terraform Libvirt Provider Specifics
+# ============================================
+
+# TRIVY-TERRAFORM-0001: Missing resource descriptions
+# Justification: Small project, code is self-documenting
+# Risk Level: LOW (documentation quality, not security)
+# CVSS: N/A
+# Remediation Plan: Add descriptions in future major refactor
+# Review Date: 2026-01-13
+
+# ============================================
+# IMPORTANT: Exception Management Process
+# ============================================
+# 1. Never ignore HIGH/CRITICAL findings without explicit approval
+# 2. Document business justification for each exception
+# 3. Include compensating controls where applicable
+# 4. Review quarterly and remove obsolete exceptions
+# 5. Update review dates after each quarterly review
