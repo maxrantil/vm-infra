@@ -1,17 +1,20 @@
-# Pre-commit hooks for vm-infra project
-# Install: pre-commit install
+# ABOUTME: Pre-commit hooks for vm-infra project
+# ABOUTME: Infrastructure and Terraform validation with security checks
+# Install: pre-commit install && pre-commit install --hook-type commit-msg
 # Run manually: pre-commit run --all-files
 # Docs: https://pre-commit.com/
 
 repos:
-  # General security and quality checks
+  # =============================================================================
+  # GENERAL FILE QUALITY & SECURITY CHECKS
+  # =============================================================================
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v5.0.0
     hooks:
-      # Security checks
+      # Security
       - id: detect-private-key
         name: Detect private keys
-        description: Prevent committing private SSH keys, API keys
+        description: Prevent committing SSH keys, API keys, certificates
 
       - id: check-added-large-files
         name: Check for large files
@@ -27,6 +30,12 @@ repos:
         name: Fix end of files
         description: Ensure files end with newline
 
+      - id: mixed-line-ending
+        name: Fix mixed line endings
+        description: Normalize line endings to LF
+        args: ['--fix=lf']
+
+      # Syntax validation
       - id: check-yaml
         name: Check YAML syntax
         description: Validate YAML files are parseable
@@ -36,16 +45,16 @@ repos:
         name: Check JSON syntax
         description: Validate JSON files are parseable
 
+      # Conflict detection
       - id: check-merge-conflict
         name: Check for merge conflicts
         description: Detect merge conflict markers
 
-      - id: mixed-line-ending
-        name: Fix mixed line endings
-        description: Normalize line endings to LF
-        args: ['--fix=lf']
+      - id: check-case-conflict
+        name: Check for case conflicts
+        description: Detect files with names that differ only in case
 
-      # Bash/Shell checks
+      # Shell/Script checks
       - id: check-executables-have-shebangs
         name: Check shebangs on executables
         description: Ensure executable files have proper shebangs
@@ -54,26 +63,216 @@ repos:
         name: Check scripts are executable
         description: Ensure scripts with shebangs are executable
 
-  # ShellCheck for bash script linting
+  # =============================================================================
+  # SHELL SCRIPT LINTING (if repo has shell scripts)
+  # =============================================================================
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.9.0.6
+    rev: v0.10.0
     hooks:
       - id: shellcheck
         name: ShellCheck bash scripts
         description: Lint bash scripts for common issues
         args: ['--severity=warning']
         types: [shell]
+        # Common exclusions (uncomment if needed):
+        # args: ['-e', 'SC1091', '-e', 'SC2034', '-e', 'SC2155', '-e', 'SC2016']
 
-  # Terraform validation and formatting
-  - repo: https://github.com/antonbabenko/pre-commit-terraform
-    rev: v1.86.0
+  # =============================================================================
+  # MARKDOWN LINTING (if repo has documentation)
+  # =============================================================================
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.42.0
     hooks:
-      - id: terraform_fmt
-        name: Terraform format
-        description: Format Terraform files consistently
+      - id: markdownlint
+        name: Markdown linting
+        description: Lint markdown files for style and consistency
+        args: ['--disable', 'MD013', '--disable', 'MD041']
 
-      - id: terraform_validate
-        name: Terraform validate
-        description: Validate Terraform configuration
+  # =============================================================================
+  # LOCAL CUSTOM HOOKS (AI BLOCKING, COMMIT FORMAT, SECURITY)
+  # =============================================================================
+  - repo: local
+    hooks:
+      # -------------------------------------------------------------------------
+      # AI/AGENT ATTRIBUTION BLOCKING (CLAUDE.md Policy Enforcement)
+      # -------------------------------------------------------------------------
+      - id: no-ai-attribution
+        name: Block AI/Agent Attribution in Commits
+        description: Enforce CLAUDE.md policy - no AI tool attribution in commits
+        entry: bash
+        language: system
+        stages: [pre-commit]
+        pass_filenames: false
+        exclude: '^\.pre-commit-config\.yaml$'
         args:
-          - --hook-config=--path=terraform/
+          - -c
+          - |
+            # Exclude common documentation and config files
+            EXCLUDES=":(exclude).pre-commit-config.yaml :(exclude).github/ :(exclude)docs/ :(exclude)SESSION*.md :(exclude)*HANDOFF*.md"
+
+            if git diff --cached --diff-filter=ACMR -- $EXCLUDES | grep "^+" | grep -iE "(Co-authored-by:.*(Claude|GPT|ChatGPT|Copilot|Gemini|Bard|AI)|Generated with.*(Claude|AI|GPT|ChatGPT|Copilot)|claude\.com/claude-code|(reviewed by|validated by|approved by|checked by).*(agent|architecture-designer|security-validator|performance-optimizer|test-automation-qa|code-quality-analyzer|documentation-knowledge-manager|ux-accessibility-i18n-agent|devops-deployment-agent|general-purpose-agent)|agent (review|validation|approval|check))"; then
+              echo ""
+              echo "❌ ERROR: AI/agent attribution detected in staged changes"
+              echo ""
+              echo "Policy: Remove AI tool attributions from commits (per CLAUDE.md)"
+              echo "  ❌ Co-authored-by: Claude/GPT/AI"
+              echo "  ❌ Generated with [AI tool]"
+              echo "  ❌ Agent validation mentions"
+              echo ""
+              echo "✅ Document agent validations in:"
+              echo "  • Session handoff files (SESSION_HANDOFF.md)"
+              echo "  • Implementation documentation (docs/)"
+              echo "  • PRD/PDR documents"
+              echo ""
+              exit 1
+            fi
+
+      # -------------------------------------------------------------------------
+      # CONVENTIONAL COMMIT FORMAT VALIDATION
+      # -------------------------------------------------------------------------
+      - id: conventional-commit-msg
+        name: Enforce Conventional Commit Format
+        description: Validate commit messages follow conventional commit format
+        entry: bash
+        language: system
+        stages: [commit-msg]
+        args:
+          - -c
+          - |
+            python3 - "$1" << 'PYEOF'
+            import sys, re
+
+            if len(sys.argv) < 2:
+                print("ERROR: No commit message file provided")
+                sys.exit(1)
+
+            with open(sys.argv[1]) as f:
+                msg = f.read().strip()
+
+            pattern = r'^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?!?: .+'
+
+            if not re.match(pattern, msg):
+                print('❌ ERROR: Commit message must use conventional commit format')
+                print('')
+                print('Format: <type>[optional scope]: <description>')
+                print('')
+                print('Examples:')
+                print('  feat(auth): add OAuth2 support')
+                print('  fix(api): resolve timeout issue')
+                print('  docs: update installation guide')
+                print('  refactor(db): optimize query performance')
+                print('')
+                print('Types: feat, fix, docs, style, refactor, test, chore, perf, ci, build, revert')
+                print('')
+                print('Breaking changes: Add ! after type/scope (e.g., feat!: remove old API)')
+                sys.exit(1)
+            PYEOF
+
+      # -------------------------------------------------------------------------
+      # CREDENTIALS/SECRETS DETECTION
+      # -------------------------------------------------------------------------
+      - id: check-credentials
+        name: Check for credentials in files
+        description: Detect potential passwords, tokens, API keys
+        entry: bash
+        language: system
+        pass_filenames: false
+        args:
+          - -c
+          - |
+            if grep -r --include="*.sh" --include="*.bash" --include="*.py" --include="*.js" --include="*.ts" --include="*.txt" -iE "(password|api_key|secret|token).*=.*['\"\`]\S+" --exclude-dir=tests --exclude-dir=node_modules --exclude-dir=.git .; then
+              echo "⚠️  WARNING: Potential credentials found!"
+              echo "Review carefully before committing"
+              exit 1
+            fi
+
+# =============================================================================
+# LANGUAGE-SPECIFIC HOOKS (Uncomment sections for your project type)
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# PYTHON PROJECTS
+# -----------------------------------------------------------------------------
+# - repo: https://github.com/psf/black
+#   rev: 24.10.0
+#   hooks:
+#     - id: black
+#       name: Black code formatter
+#       language_version: python3.11
+#
+# - repo: https://github.com/astral-sh/ruff-pre-commit
+#   rev: v0.7.4
+#   hooks:
+#     - id: ruff
+#       name: Ruff linter
+#       args: [--fix]
+#
+# - repo: https://github.com/pre-commit/mirrors-mypy
+#   rev: v1.13.0
+#   hooks:
+#     - id: mypy
+#       name: MyPy type checking
+#       additional_dependencies: [types-all]
+
+# -----------------------------------------------------------------------------
+# JAVASCRIPT/TYPESCRIPT PROJECTS
+# -----------------------------------------------------------------------------
+# - repo: local
+#   hooks:
+#     - id: eslint
+#       name: ESLint
+#       entry: npx eslint
+#       language: system
+#       files: \.(js|jsx|ts|tsx)$
+#       args: [--fix]
+#
+#     - id: prettier
+#       name: Prettier
+#       entry: npx prettier
+#       language: system
+#       files: \.(js|jsx|ts|tsx|json|css|scss|md|yaml|yml)$
+#       args: [--write]
+#
+#     - id: tsc
+#       name: TypeScript Check
+#       entry: npx tsc
+#       language: system
+#       files: \.(ts|tsx)$
+#       args: [--noEmit]
+#       pass_filenames: false
+
+# =============================================================================
+# TERRAFORM/INFRASTRUCTURE
+# =============================================================================
+- repo: https://github.com/antonbabenko/pre-commit-terraform
+  rev: v1.96.0
+  hooks:
+    - id: terraform_fmt
+      name: Terraform format
+      description: Format Terraform files consistently
+
+    - id: terraform_validate
+      name: Terraform validate
+      description: Validate Terraform configuration
+      args:
+        - --hook-config=--path=terraform/
+
+# =============================================================================
+# PROJECT-SPECIFIC HOOKS (Customize for your repo)
+# =============================================================================
+# - repo: local
+#   hooks:
+#     # Run project tests before commit
+#     - id: run-tests
+#       name: Run unit tests
+#       entry: npm test  # or: pytest, go test, cargo test, etc.
+#       language: system
+#       pass_filenames: false
+#       stages: [pre-push]
+#
+#     # Ensure executable scripts
+#     - id: executable-scripts
+#       name: Ensure scripts are executable
+#       entry: bash -c 'for script in script1 script2 script3; do [ -f "$script" ] && chmod +x "$script"; done'
+#       language: system
+#       pass_filenames: false
