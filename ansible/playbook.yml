@@ -144,21 +144,48 @@
         group: "{{ ansible_user }}"
         mode: '0700'
 
-    - name: Copy GitHub SSH private key to VM
-      copy:
-        src: ~/.ssh/id_ed25519
-        dest: "{{ ssh_key_path }}"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0600'
+    # CVE-2024-ANSIBLE-001: Generate VM-specific deploy keys (CVSS 9.3)
+    # Security: Each VM gets unique key instead of copying host SSH key
+    - name: Generate VM-specific deploy key
+      command: ssh-keygen -t ed25519 -f {{ ssh_key_path }} -N "" -C "vm-deploy-{{ ansible_hostname }}"
+      args:
+        creates: "{{ ssh_key_path }}"
+      become_user: "{{ ansible_user }}"
 
-    - name: Copy GitHub SSH public key to VM
-      copy:
-        src: ~/.ssh/id_ed25519.pub
-        dest: "{{ ssh_pub_key_path }}"
+    - name: Set deploy key permissions
+      file:
+        path: "{{ ssh_key_path }}"
+        mode: '0600'
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
-        mode: '0644'
+
+    - name: Display public deploy key
+      shell: cat {{ ssh_pub_key_path }}
+      register: deploy_key_output
+      become_user: "{{ ansible_user }}"
+      changed_when: false
+
+    - name: Deploy key setup instructions
+      debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          ⚠️  MANUAL STEP REQUIRED: Add Deploy Key to GitHub ⚠️
+          ═══════════════════════════════════════════════════════════════
+
+          Copy the key below and add it to your GitHub repository:
+
+          {{ deploy_key_output.stdout }}
+
+          Steps:
+          1. Go to: https://github.com/maxrantil/dotfiles/settings/keys
+          2. Click "Add deploy key"
+          3. Title: vm-{{ ansible_hostname }}-deploy-key
+          4. Paste the key above
+          5. ✓ Check "Allow write access" if needed for push operations
+          6. Click "Add key"
+
+          After adding the deploy key, dotfiles will be accessible from this VM.
+          ═══════════════════════════════════════════════════════════════
 
     - name: Add GitHub to known hosts
       known_hosts:
