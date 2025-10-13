@@ -17,7 +17,7 @@ This infrastructure automates the setup of Ubuntu 24.04 VMs with:
 - **Ansible** - Configuration management
 - **SSH keys**:
   - `vm_key` - For SSH access to VMs
-  - `id_ed25519` - Your GitHub key (for git clones on VMs)
+  - **Deploy keys** - VM-specific GitHub keys (generated automatically)
 
 ## Quick Start
 
@@ -28,9 +28,8 @@ This infrastructure automates the setup of Ubuntu 24.04 VMs with:
 git clone https://github.com/maxrantil/vm-infra.git
 cd vm-infra
 
-# Generate SSH keys (if needed)
+# Generate VM access key (if needed)
 ssh-keygen -t ed25519 -f ~/.ssh/vm_key -C "vm-access"
-ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -C "your-email@example.com"
 
 # Provision a VM
 ./provision-vm.sh my-vm-name
@@ -43,7 +42,9 @@ That's it! The script will:
 1. Create the VM with Terraform
 2. Wait for cloud-init to complete
 3. Run Ansible playbook
-4. Display SSH connection info
+4. Generate VM-specific deploy key
+5. Display deploy key setup instructions
+6. Display SSH connection info
 
 ### Destroy a VM
 
@@ -69,8 +70,8 @@ sudo apt install terraform ansible libvirt-daemon-system qemu-kvm
 # VM access key
 ssh-keygen -t ed25519 -f ~/.ssh/vm_key -C "vm-access"
 
-# Ensure your GitHub key exists
-ls ~/.ssh/id_ed25519 || ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -C "your-email@example.com"
+# Note: Deploy keys for GitHub are generated automatically per-VM
+# See "Deploy Key Setup" section below
 ```
 
 ### 3. Create a VM
@@ -213,6 +214,51 @@ The `--test-dotfiles` flag includes automatic security checks:
 # Normal provisioning (uses GitHub)
 ./provision-vm.sh prod-vm
 ```
+
+## Deploy Key Setup
+
+VMs use repository-specific deploy keys instead of copying your personal SSH keys. This improves security by:
+- **Isolating credentials** - Each VM has a unique key
+- **Enabling revocation** - Revoke single VM key without affecting others
+- **Providing audit trails** - Track which VM accessed repositories
+- **Following least privilege** - Deploy keys are repository-specific
+- **Protecting your account** - Your personal SSH key never leaves your machine
+
+### After Provisioning
+
+When Ansible completes, it will display the public deploy key. Follow these steps:
+
+1. Copy the displayed public key
+2. Go to: https://github.com/maxrantil/dotfiles/settings/keys
+3. Click "Add deploy key"
+4. Title: `vm-<hostname>-deploy-key`
+5. Paste the key
+6. ✓ Check "Allow write access" (only if pushing from VM)
+7. Click "Add key"
+
+### Key Rotation
+
+To rotate a deploy key:
+
+```bash
+# 1. Delete old key from GitHub repository settings
+# 2. Remove old key from VM
+ssh -i ~/.ssh/vm_key mr@<VM_IP> "rm ~/.ssh/id_ed25519*"
+
+# 3. Re-run Ansible to generate new key
+cd ansible
+ansible-playbook -i inventory.ini playbook.yml
+
+# 4. Add new deploy key to GitHub (follow steps above)
+```
+
+### Security Benefits
+
+- **VM compromise ≠ GitHub account compromise**
+- **Independent key revocation** per VM
+- **No credential proliferation**
+- **Audit trail** of repository access
+- **Reduced blast radius** of security incidents
 
 ## SSH Access
 
