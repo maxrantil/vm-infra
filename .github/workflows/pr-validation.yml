@@ -1,0 +1,63 @@
+# ABOUTME: PR validation workflow using centralized reusable workflows from maxrantil/.github
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  shell-quality:
+    name: Shell Quality Checks
+    uses: maxrantil/.github/.github/workflows/shell-quality-reusable.yml@master
+    with:
+      shellcheck-severity: 'warning'
+      shfmt-options: '-d -i 4 -ci -sr'
+
+  conventional-commits:
+    name: Conventional Commit Format
+    uses: maxrantil/.github/.github/workflows/conventional-commit-check-reusable.yml@master
+    with:
+      base-branch: 'master'
+
+  session-handoff:
+    name: Session Handoff Documentation
+    uses: maxrantil/.github/.github/workflows/session-handoff-check-reusable.yml@master
+    with:
+      base-branch: 'master'
+      handoff-file: 'SESSION_HANDOVER.md'
+
+  block-ai-attribution:
+    name: Block AI Attribution
+    uses: maxrantil/.github/.github/workflows/block-ai-attribution-reusable.yml@master
+    with:
+      base-branch: 'master'
+
+  pr-title-format:
+    name: PR Title Format
+    uses: maxrantil/.github/.github/workflows/pr-title-check-reusable.yml@master
+    with:
+      allowed-types: 'feat,fix,docs,style,refactor,test,chore,perf,ci,build,revert'
+
+  commit-quality:
+    name: Commit Quality Analysis
+    uses: maxrantil/.github/.github/workflows/commit-quality-check-reusable.yml@master
+    with:
+      base-branch: 'master'
+      fail-on-fixups: false
+      suggest-cleanup: true
+      cleanup-score-threshold: 'MEDIUM'
+
+  pre-commit-hooks:
+    name: Pre-commit Hooks
+    uses: maxrantil/.github/.github/workflows/pre-commit-check-reusable.yml@master
+    with:
+      python-version: '3.11'
+      base-branch: 'master'
+
+  pr-body-ai-check:
+    name: PR Body AI Attribution
+    uses: maxrantil/.github/.github/workflows/pr-body-ai-attribution-check-reusable.yml@master
