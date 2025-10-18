@@ -55,20 +55,15 @@ variable "dotfiles_local_path" {
   default     = ""
 }
 
-# Ubuntu cloud image
-resource "libvirt_volume" "ubuntu_base" {
-  name   = "${var.vm_name}-base.qcow2"
-  pool   = "default"
-  source = "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
-  format = "qcow2"
-}
-
-# VM disk (based on cloud image)
+# VM disk (based on external permanent base image)
+# Base image: /var/lib/libvirt/images/ubuntu-24.04-base.qcow2
+# Download once with: curl -L https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img -o /var/lib/libvirt/images/ubuntu-24.04-base.qcow2
 resource "libvirt_volume" "vm_disk" {
-  name           = "${var.vm_name}.qcow2"
-  base_volume_id = libvirt_volume.ubuntu_base.id
-  pool           = "default"
-  size           = var.disk_size
+  name             = "${var.vm_name}.qcow2"
+  base_volume_pool = "default"
+  base_volume_name = "ubuntu-22.04-base.qcow2"
+  pool             = "default"
+  size             = var.disk_size
 }
 
 # Read SSH public key
@@ -76,13 +71,47 @@ locals {
   ssh_key = var.ssh_public_key != "" ? var.ssh_public_key : file(pathexpand(var.ssh_public_key_file))
 }
 
-# Cloud-init disk
-resource "libvirt_cloudinit_disk" "commoninit" {
-  name = "${var.vm_name}-cloudinit.iso"
-  user_data = templatefile("../cloud-init/user-data.yaml", {
-    ssh_public_key = local.ssh_key
-  })
-  pool = "default"
+# ═══════════════════════════════════════════════════════════════════════════
+# WORKAROUND: Manual Cloud-Init ISO Creation
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Issue: libvirt provider race condition with cloudinit_disk resources
+# GitHub: https://github.com/dmacvicar/terraform-provider-libvirt/issues/973
+# Affects: Provider versions 0.7.x - 0.8.3 (current)
+#
+# Problem: libvirt_cloudinit_disk creates volumes with random UUID suffixes
+# (e.g., /path/to/file.iso;random-uuid) that fail lookup when the domain
+# tries to attach them before upload completes. This is a race condition.
+#
+# Workaround: Create cloud-init ISO manually using genisoimage, then reference
+# it as a regular libvirt_volume. This bypasses the provider's broken
+# cloudinit_disk resource entirely.
+#
+# Migration Path: When provider > 0.8.3 fixes the race condition, replace
+# this workaround with native libvirt_cloudinit_disk resource.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Step 1: Execute bash script to generate cloud-init ISO
+resource "null_resource" "cloudinit_iso" {
+  provisioner "local-exec" {
+    command = "${path.module}/create-cloudinit-iso.sh '${var.vm_name}' '${local.ssh_key}'"
+  }
+
+  # Recreate ISO if VM name or SSH key changes
+  triggers = {
+    vm_name = var.vm_name
+    ssh_key = local.ssh_key
+  }
+}
+
+# Step 2: Reference the manually created ISO as a libvirt volume
+resource "libvirt_volume" "cloudinit" {
+  name   = "${var.vm_name}-cloudinit.iso"
+  pool   = "default"
+  source = "/var/lib/libvirt/images/${var.vm_name}-cloudinit.iso"
+
+  depends_on = [null_resource.cloudinit_iso]
 }
 
 # Define the VM
@@ -91,14 +120,23 @@ resource "libvirt_domain" "vm" {
   memory = var.memory
   vcpu   = var.vcpus
 
-  cloudinit = libvirt_cloudinit_disk.commoninit.id
+  # NOTE: cloudinit attribute removed due to provider bug (see workaround above)
+  # Native approach would be: cloudinit = libvirt_cloudinit_disk.commoninit.id
+  # Using explicit disk attachment instead as part of the workaround
 
   network_interface {
     network_name = "default"
   }
 
+  # Main OS disk
   disk {
     volume_id = libvirt_volume.vm_disk.id
+  }
+
+  # Cloud-init ISO attached as secondary disk (explicit attachment for workaround)
+  disk {
+    volume_id = libvirt_volume.cloudinit.id
+    scsi      = false
   }
 
   console {

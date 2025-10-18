@@ -541,7 +541,7 @@ echo ""
 # Step 2: Wait for cloud-init
 echo -e "${YELLOW}Step 2: Waiting for cloud-init to complete...${NC}"
 CLOUD_INIT_SUCCESS=false
-for _ in {1..30}; do
+for _ in {1..90}; do
     if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=2 mr@"$VM_IP" 'cloud-init status --wait' 2> /dev/null; then
         CLOUD_INIT_SUCCESS=true
         break
@@ -550,7 +550,7 @@ for _ in {1..30}; do
 done
 
 if [ "$CLOUD_INIT_SUCCESS" = false ]; then
-    echo -e "${RED}[ERROR] cloud-init did not complete within 60 seconds${NC}" >&2
+    echo -e "${RED}[ERROR] cloud-init did not complete within 180 seconds${NC}" >&2
     echo "" >&2
     echo "VM may still be initializing. Manual steps:" >&2
     echo "  1. Check VM status: ssh -i ~/.ssh/vm_key mr@$VM_IP 'cloud-init status'" >&2
