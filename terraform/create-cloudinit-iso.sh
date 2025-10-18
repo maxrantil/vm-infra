@@ -42,6 +42,9 @@ if ! validate_ssh_key "$SSH_KEY"; then
     exit 1
 fi
 
+# Strip trailing whitespace/newlines from SSH key for sed substitution
+SSH_KEY=$(echo "$SSH_KEY" | tr -d '\n' | sed 's/[[:space:]]*$//')
+
 # HRI-001: Validate VM name (prevent path traversal and command injection)
 if [[ "$VM_NAME" =~ [^a-zA-Z0-9._-] ]]; then
     echo "ERROR: VM name contains invalid characters. Use only alphanumeric, dots, underscores, and hyphens." >&2
