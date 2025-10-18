@@ -1,0 +1,5 @@
+# ABOUTME: Cloud-init meta-data for NoCloud datasource
+# Provides instance identification for cloud-init
+
+instance-id: ${instance_id}
+local-hostname: ${instance_id}
