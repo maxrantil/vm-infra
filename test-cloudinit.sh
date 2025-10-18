@@ -5,6 +5,7 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEST_VM_NAME="test-cloudinit-regression-$$"
 TIMEOUT_SECONDS=180
 PASSED=0
@@ -33,9 +34,9 @@ log_fail() {
 cleanup() {
     echo ""
     log_test "Cleaning up test VM..."
-    cd terraform
+    cd "$SCRIPT_DIR/terraform"
     terraform destroy -auto-approve -var="vm_name=$TEST_VM_NAME" &>/dev/null || true
-    cd ..
+    cd "$SCRIPT_DIR"
 
     echo ""
     echo "═══════════════════════════════════════"
@@ -63,18 +64,18 @@ echo ""
 
 # Test 1: Terraform can create VM
 log_test "Creating VM with Terraform..."
-cd terraform
+cd "$SCRIPT_DIR/terraform"
 if terraform apply -auto-approve -var="vm_name=$TEST_VM_NAME" &>/dev/null; then
     log_pass "VM created successfully"
 else
     log_fail "Terraform failed to create VM"
     exit 1
 fi
-cd ..
+cd "$SCRIPT_DIR"
 
 # Test 2: Get VM IP address
 log_test "Retrieving VM IP address..."
-VM_IP=$(cd terraform && terraform output -raw vm_ip)
+VM_IP=$(cd "$SCRIPT_DIR/terraform" && terraform output -raw vm_ip)
 if [ -n "$VM_IP" ] && [ "$VM_IP" != "pending" ]; then
     log_pass "VM IP retrieved: $VM_IP"
 else
