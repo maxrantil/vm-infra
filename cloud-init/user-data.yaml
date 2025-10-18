@@ -1,6 +1,15 @@
 # ABOUTME: Cloud-init configuration for initial VM setup
+# Uses NoCloud datasource for local KVM/libvirt provisioning
 
 #cloud-config
+
+# Explicit NoCloud datasource prevents waiting for cloud metadata (AWS/Azure/etc)
+# This is the standard approach for local VM development
+datasource_list: [ NoCloud, None ]
+datasource:
+  NoCloud:
+    seedfrom: /dev/sr0  # Cloud-init ISO device
+
 hostname: ubuntu-vm
 fqdn: ubuntu-vm.local
 
@@ -16,24 +25,9 @@ users:
 # Set timezone
 timezone: UTC
 
-# Update and upgrade packages
-package_update: true
-package_upgrade: true
-
-# Install base packages
-packages:
-  - openssh-server
-  - git
-  - curl
-  - build-essential
-  - python3
-  - python3-pip
+# Minimal setup - no package installation (Ansible handles everything)
+# Cloud image already has openssh-server and python3 pre-installed
 
 # Enable SSH
 ssh_pwauth: false
 disable_root: true
-
-# Run commands on first boot
-runcmd:
-  - systemctl enable ssh
-  - systemctl start ssh
