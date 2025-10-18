@@ -95,7 +95,7 @@ locals {
 # Step 1: Execute bash script to generate cloud-init ISO
 resource "null_resource" "cloudinit_iso" {
   provisioner "local-exec" {
-    command = "${path.module}/create-cloudinit-iso.sh '${var.vm_name}' '${local.ssh_key}'"
+    command = "sudo ${path.module}/create-cloudinit-iso.sh '${var.vm_name}' '${local.ssh_key}'"
   }
 
   # Recreate ISO if VM name or SSH key changes
