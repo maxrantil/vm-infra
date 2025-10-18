@@ -128,6 +128,57 @@ repos:
             fi
 
       # -------------------------------------------------------------------------
+      # AI/AGENT ATTRIBUTION BLOCKING IN COMMIT MESSAGES
+      # -------------------------------------------------------------------------
+      - id: no-ai-attribution-commit-msg
+        name: Block AI Attribution in Commit Messages
+        description: Prevent AI/agent attribution in commit message body
+        entry: bash
+        language: system
+        stages: [commit-msg]
+        args:
+          - -c
+          - |
+            python3 - "$1" << 'PYEOF'
+            import sys, re
+
+            if len(sys.argv) < 2:
+                print("ERROR: No commit message file provided")
+                sys.exit(1)
+
+            with open(sys.argv[1]) as f:
+                msg = f.read()
+
+            # Check for AI attribution patterns
+            patterns = [
+                r'Co-authored-by:.*(?:Claude|GPT|ChatGPT|Copilot|Gemini|Bard|AI)',
+                r'Generated with.*(?:Claude|AI|GPT|ChatGPT|Copilot)',
+                r'claude\.com/claude-code',
+                r'(?:reviewed by|validated by|approved by|checked by).*(?:agent|architecture-designer|security-validator|performance-optimizer|test-automation-qa|code-quality-analyzer|documentation-knowledge-manager|ux-accessibility-i18n-agent|devops-deployment-agent|general-purpose-agent)',
+                r'agent (?:review|validation|approval|check)',
+                r'🤖.*(?:Claude|AI|GPT)'
+            ]
+
+            for pattern in patterns:
+                if re.search(pattern, msg, re.IGNORECASE):
+                    print('')
+                    print('❌ ERROR: AI/agent attribution detected in commit message')
+                    print('')
+                    print('Policy: Remove AI tool attributions from commits (per CLAUDE.md)')
+                    print('  ❌ Co-authored-by: Claude/GPT/AI')
+                    print('  ❌ Generated with [AI tool]')
+                    print('  ❌ Agent validation mentions')
+                    print('  ❌ 🤖 emoji with AI references')
+                    print('')
+                    print('✅ Document agent validations in:')
+                    print('  • Session handoff files (SESSION_HANDOFF.md)')
+                    print('  • Implementation documentation (docs/)')
+                    print('  • PRD/PDR documents')
+                    print('')
+                    sys.exit(1)
+            PYEOF
+
+      # -------------------------------------------------------------------------
       # CONVENTIONAL COMMIT FORMAT VALIDATION
       # -------------------------------------------------------------------------
       - id: conventional-commit-msg

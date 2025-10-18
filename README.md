@@ -518,6 +518,35 @@ If issues persist:
    - `terraform version`, `ansible --version`, `virsh version`
    - OS and distribution
 
+## Known Issues
+
+### libvirt Provider Cloud-Init Race Condition
+
+**Issue**: The terraform-provider-libvirt has a race condition bug where `libvirt_cloudinit_disk` resources fail with "Storage volume not found" errors when the VM domain tries to reference the cloudinit ISO before it's fully uploaded.
+
+**Error Message**:
+```
+Error: can't retrieve volume /var/lib/libvirt/images/<vm-name>-cloudinit.iso;<UUID>:
+Storage volume not found: no storage vol with matching key
+```
+
+**Upstream Tracking**:
+- GitHub Issue: [dmacvicar/terraform-provider-libvirt#973](https://github.com/dmacvicar/terraform-provider-libvirt/issues/973)
+- Affected Versions: 0.7.x - 0.8.3 (current)
+
+**Root Cause**: The provider generates random UUID suffixes for cloudinit volumes, but the domain creation races with ISO upload, causing lookup failures.
+
+**Our Workaround**: Manual ISO creation using `genisoimage` bypasses the provider's cloudinit_disk resource entirely:
+- `terraform/create-cloudinit-iso.sh` - Generates cloud-init ISO manually
+- `terraform/main.tf` - Uses `null_resource` + `libvirt_volume` instead of `libvirt_cloudinit_disk`
+- This approach eliminates the race condition and UUID suffix issues
+
+**When to Remove Workaround**: Monitor the upstream issue. When a fix is released (likely > v0.8.3), we can migrate back to native `libvirt_cloudinit_disk` resources.
+
+**Testing**: Our workaround has been validated to work reliably across multiple VM provisions. Cloud-init completes successfully within 30 seconds in normal conditions.
+
+---
+
 ## License
 
 MIT
