@@ -22,8 +22,10 @@ validate_ssh_key() {
     fi
 
     # Create temporary file for validation
+    # MRI-001 FIX: Set secure permissions immediately to prevent TOCTOU
     local temp_keyfile
     temp_keyfile=$(mktemp)
+    chmod 600 "$temp_keyfile"
     echo "$key" > "$temp_keyfile"
 
     # Use ssh-keygen to validate the key format
@@ -101,10 +103,28 @@ sed -i "s|VM_NAME_PLACEHOLDER|$VM_NAME|g" "$TEMP_DIR/meta-data"
 
 # Create ISO
 ISO_PATH="/var/lib/libvirt/images/${VM_NAME}-cloudinit.iso"
-genisoimage -output "$ISO_PATH" -volid cidata -joliet -rock "$TEMP_DIR/user-data" "$TEMP_DIR/meta-data" 2>/dev/null
+
+# MV-001 FIX: Validate genisoimage success and file creation
+if ! genisoimage -output "$ISO_PATH" -volid cidata -joliet -rock "$TEMP_DIR/user-data" "$TEMP_DIR/meta-data" 2>/dev/null; then
+    echo "ERROR: Failed to create ISO with genisoimage" >&2
+    exit 1
+fi
+
+if [ ! -f "$ISO_PATH" ]; then
+    echo "ERROR: ISO file not created at $ISO_PATH" >&2
+    exit 1
+fi
 
 # HRI-003 FIX: Set secure permissions (640) and ownership (root:libvirt)
-chmod 640 "$ISO_PATH"
-chown root:libvirt "$ISO_PATH"
+# MRI-002 FIX: Validate privileged operations succeed (fail-secure)
+if ! chmod 640 "$ISO_PATH"; then
+    echo "ERROR: Failed to set ISO permissions to 640" >&2
+    exit 1
+fi
+
+if ! chown root:libvirt "$ISO_PATH"; then
+    echo "ERROR: Failed to set ISO ownership to root:libvirt" >&2
+    exit 1
+fi
 
 echo "$ISO_PATH"

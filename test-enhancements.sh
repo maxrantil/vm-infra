@@ -111,8 +111,8 @@ fi
 
 # Test 5: Script verifies ISO file exists after creation
 echo "Test 5: Script verifies ISO file exists after creation"
-if grep -A 3 'genisoimage' "$CREATE_ISO_SCRIPT" | grep -q 'if.*-f.*ISO_PATH' || \
-   grep -A 3 'genisoimage' "$CREATE_ISO_SCRIPT" | grep -q '\[ -f'; then
+if grep -A 10 'genisoimage' "$CREATE_ISO_SCRIPT" | grep -q 'if.*-f.*ISO_PATH' || \
+   grep -A 10 'genisoimage' "$CREATE_ISO_SCRIPT" | grep -q '\[ ! -f'; then
     test_pass "Script verifies ISO file existence"
 else
     test_fail "Script verifies ISO file existence" "No file existence check found after genisoimage"
