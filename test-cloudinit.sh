@@ -35,7 +35,7 @@ cleanup() {
     echo ""
     log_test "Cleaning up test VM..."
     cd "$SCRIPT_DIR/terraform"
-    terraform destroy -auto-approve -var="vm_name=$TEST_VM_NAME" &>/dev/null || true
+    terraform destroy -auto-approve -var="vm_name=$TEST_VM_NAME" &> /dev/null || true
     cd "$SCRIPT_DIR"
 
     echo ""
@@ -65,7 +65,7 @@ echo ""
 # Test 1: Terraform can create VM
 log_test "Creating VM with Terraform..."
 cd "$SCRIPT_DIR/terraform"
-if terraform apply -auto-approve -var="vm_name=$TEST_VM_NAME" &>/dev/null; then
+if terraform apply -auto-approve -var="vm_name=$TEST_VM_NAME" &> /dev/null; then
     log_pass "VM created successfully"
 else
     log_fail "Terraform failed to create VM"
@@ -89,7 +89,7 @@ CLOUD_INIT_SUCCESS=false
 
 for _ in $(seq 1 $((TIMEOUT_SECONDS / 2))); do
     if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=2 \
-       mr@"$VM_IP" 'cloud-init status --wait' &>/dev/null; then
+        mr@"$VM_IP" 'cloud-init status --wait' &> /dev/null; then
         CLOUD_INIT_SUCCESS=true
         break
     fi
@@ -108,7 +108,7 @@ fi
 # Test 4: SSH connectivity
 log_test "Testing SSH connectivity..."
 if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
-   mr@"$VM_IP" 'echo "SSH OK"' &>/dev/null; then
+    mr@"$VM_IP" 'echo "SSH OK"' &> /dev/null; then
     log_pass "SSH connectivity verified"
 else
     log_fail "SSH connection failed"
@@ -117,7 +117,7 @@ fi
 # Test 5: User 'mr' exists
 log_test "Verifying user 'mr' created..."
 USER_CHECK=$(ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no \
-    mr@"$VM_IP" 'whoami' 2>/dev/null || echo "")
+    mr@"$VM_IP" 'whoami' 2> /dev/null || echo "")
 if [ "$USER_CHECK" = "mr" ]; then
     log_pass "User 'mr' verified"
 else
@@ -127,7 +127,7 @@ fi
 # Test 6: User has sudo privileges
 log_test "Verifying sudo privileges..."
 if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no \
-   mr@"$VM_IP" 'sudo -n true' &>/dev/null; then
+    mr@"$VM_IP" 'sudo -n true' &> /dev/null; then
     log_pass "Sudo privileges verified (passwordless)"
 else
     log_fail "Sudo privileges not configured"
@@ -136,7 +136,7 @@ fi
 # Test 7: Cloud-init status shows 'done'
 log_test "Checking cloud-init final status..."
 CLOUD_INIT_STATUS=$(ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no \
-    mr@"$VM_IP" 'cloud-init status' 2>/dev/null || echo "")
+    mr@"$VM_IP" 'cloud-init status' 2> /dev/null || echo "")
 if echo "$CLOUD_INIT_STATUS" | grep -q "status: done"; then
     log_pass "Cloud-init status: done"
 else
@@ -146,7 +146,7 @@ fi
 # Test 8: SSH key properly authorized
 log_test "Verifying SSH key authorization..."
 if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no \
-   mr@"$VM_IP" 'test -f ~/.ssh/authorized_keys && grep -q "vm-access" ~/.ssh/authorized_keys' &>/dev/null; then
+    mr@"$VM_IP" 'test -f ~/.ssh/authorized_keys && grep -q "vm-access" ~/.ssh/authorized_keys' &> /dev/null; then
     log_pass "SSH key properly authorized"
 else
     log_fail "SSH key not in authorized_keys"
@@ -155,7 +155,7 @@ fi
 # Test 9: Cloud-init ISO attached correctly
 log_test "Verifying cloud-init ISO was accessible..."
 if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no \
-   mr@"$VM_IP" 'test -d /var/lib/cloud/seed/nocloud' &>/dev/null; then
+    mr@"$VM_IP" 'test -d /var/lib/cloud/seed/nocloud' &> /dev/null; then
     log_pass "Cloud-init NoCloud datasource detected"
 else
     log_fail "Cloud-init NoCloud datasource not found"

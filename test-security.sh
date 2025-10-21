@@ -37,7 +37,7 @@ test_skip() {
 
 cleanup_test_artifacts() {
     # Clean up any test ISOs created
-    sudo rm -f /var/lib/libvirt/images/test-*-cloudinit.iso 2>/dev/null || true
+    sudo rm -f /var/lib/libvirt/images/test-*-cloudinit.iso 2> /dev/null || true
 }
 
 # Trap to ensure cleanup
@@ -68,7 +68,7 @@ echo ""
 # Test 1: Shell injection via VM name with backticks
 echo "Test 1: VM name with command substitution (backticks)"
 VM_NAME_BACKTICK='test-$(touch /tmp/exploit-backtick)'
-if sudo bash "$CREATE_ISO_SCRIPT" "$VM_NAME_BACKTICK" "$VALID_SSH_KEY" 2>/dev/null; then
+if sudo bash "$CREATE_ISO_SCRIPT" "$VM_NAME_BACKTICK" "$VALID_SSH_KEY" 2> /dev/null; then
     if [ -f /tmp/exploit-backtick ]; then
         test_fail "Shell injection via backticks" "File /tmp/exploit-backtick was created (vulnerability exists)"
         rm -f /tmp/exploit-backtick
@@ -83,7 +83,7 @@ fi
 # Test 2: Shell injection via VM name with command substitution
 echo "Test 2: VM name with command substitution \$()"
 VM_NAME_SUBSHELL='test-$(touch /tmp/exploit-subshell)'
-if sudo bash "$CREATE_ISO_SCRIPT" "$VM_NAME_SUBSHELL" "$VALID_SSH_KEY" 2>/dev/null; then
+if sudo bash "$CREATE_ISO_SCRIPT" "$VM_NAME_SUBSHELL" "$VALID_SSH_KEY" 2> /dev/null; then
     if [ -f /tmp/exploit-subshell ]; then
         test_fail "Shell injection via \$() prevented" "File /tmp/exploit-subshell was created (vulnerability exists)"
         rm -f /tmp/exploit-subshell
@@ -97,7 +97,7 @@ fi
 # Test 3: Shell injection via SSH key
 echo "Test 3: SSH key with command injection"
 MALICIOUS_SSH_KEY='ssh-rsa AAAAB3 $(touch /tmp/exploit-sshkey) test@exploit.com'
-if sudo bash "$CREATE_ISO_SCRIPT" "test-ssh-injection" "$MALICIOUS_SSH_KEY" 2>/dev/null; then
+if sudo bash "$CREATE_ISO_SCRIPT" "test-ssh-injection" "$MALICIOUS_SSH_KEY" 2> /dev/null; then
     if [ -f /tmp/exploit-sshkey ]; then
         test_fail "Shell injection via SSH key prevented" "File /tmp/exploit-sshkey was created (vulnerability exists)"
         rm -f /tmp/exploit-sshkey
@@ -114,7 +114,7 @@ echo ""
 
 # Test 4: Empty SSH key
 echo "Test 4: Empty SSH key"
-if sudo bash "$CREATE_ISO_SCRIPT" "test-empty-key" "" 2>/dev/null; then
+if sudo bash "$CREATE_ISO_SCRIPT" "test-empty-key" "" 2> /dev/null; then
     test_fail "Empty SSH key rejected" "Script accepted empty SSH key"
 else
     test_pass "Empty SSH key rejected"
@@ -123,7 +123,7 @@ fi
 # Test 5: Malformed SSH key (not base64)
 echo "Test 5: Malformed SSH key (invalid format)"
 INVALID_SSH_KEY="not-a-valid-ssh-key"
-if sudo bash "$CREATE_ISO_SCRIPT" "test-invalid-key" "$INVALID_SSH_KEY" 2>/dev/null; then
+if sudo bash "$CREATE_ISO_SCRIPT" "test-invalid-key" "$INVALID_SSH_KEY" 2> /dev/null; then
     test_fail "Malformed SSH key rejected" "Script accepted invalid SSH key format"
 else
     test_pass "Malformed SSH key rejected"
@@ -133,7 +133,7 @@ fi
 echo "Test 6: SSH private key (should be public key)"
 # Use concatenation to avoid triggering pre-commit private key detection
 PRIVATE_KEY_FORMAT="-----BEGIN OPENSSH ""PRIVATE KEY-----"
-if sudo bash "$CREATE_ISO_SCRIPT" "test-private-key" "$PRIVATE_KEY_FORMAT" 2>/dev/null; then
+if sudo bash "$CREATE_ISO_SCRIPT" "test-private-key" "$PRIVATE_KEY_FORMAT" 2> /dev/null; then
     test_fail "Private key rejected" "Script accepted private key instead of public key"
 else
     test_pass "Private key rejected"
@@ -141,7 +141,7 @@ fi
 
 # Test 7: Valid SSH key should be accepted
 echo "Test 7: Valid SSH key accepted"
-if sudo bash "$CREATE_ISO_SCRIPT" "test-valid-key" "$VALID_SSH_KEY" 2>/dev/null; then
+if sudo bash "$CREATE_ISO_SCRIPT" "test-valid-key" "$VALID_SSH_KEY" 2> /dev/null; then
     test_pass "Valid SSH key accepted"
     # Check that ISO was created
     if [ -f "/var/lib/libvirt/images/test-valid-key-cloudinit.iso" ]; then
