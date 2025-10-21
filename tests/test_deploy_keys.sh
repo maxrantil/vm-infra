@@ -180,7 +180,6 @@ main() {
     echo "Deploy Key Security Tests (Issue #49)"
     echo "CVE-2024-ANSIBLE-001: SSH Key Credential Proliferation"
     echo "Refactored: Behavior tests (Issue #63)"
-    echo "TDD Phase: GREEN (tests should PASS)"
     echo "========================================"
     echo ""
 
