@@ -29,7 +29,7 @@ test_fail() {
 }
 
 cleanup() {
-    sudo rm -f /var/lib/libvirt/images/test-*-cloudinit.iso 2>/dev/null || true
+    sudo rm -f /var/lib/libvirt/images/test-*-cloudinit.iso 2> /dev/null || true
 }
 
 trap cleanup EXIT
@@ -40,7 +40,7 @@ echo "========================================"
 echo ""
 
 # Generate valid SSH key for tests
-ssh-keygen -t rsa -b 2048 -f /tmp/test_unit_key -N "" -C "test@test.com" &>/dev/null
+ssh-keygen -t rsa -b 2048 -f /tmp/test_unit_key -N "" -C "test@test.com" &> /dev/null
 VALID_KEY=$(cat /tmp/test_unit_key.pub)
 
 echo "=== Input Validation Tests ==="
@@ -100,7 +100,7 @@ else
 fi
 
 # Test 8: ISO has correct permissions (640)
-PERMS=$(sudo stat -c %a /var/lib/libvirt/images/test-unit-valid-cloudinit.iso 2>/dev/null || echo "000")
+PERMS=$(sudo stat -c %a /var/lib/libvirt/images/test-unit-valid-cloudinit.iso 2> /dev/null || echo "000")
 if [ "$PERMS" = "640" ]; then
     test_pass "ISO has 640 permissions"
 else
@@ -108,8 +108,8 @@ else
 fi
 
 # Test 9: ISO has correct ownership (root:libvirt)
-OWNER=$(sudo stat -c %U /var/lib/libvirt/images/test-unit-valid-cloudinit.iso 2>/dev/null || echo "unknown")
-GROUP=$(sudo stat -c %G /var/lib/libvirt/images/test-unit-valid-cloudinit.iso 2>/dev/null || echo "unknown")
+OWNER=$(sudo stat -c %U /var/lib/libvirt/images/test-unit-valid-cloudinit.iso 2> /dev/null || echo "unknown")
+GROUP=$(sudo stat -c %G /var/lib/libvirt/images/test-unit-valid-cloudinit.iso 2> /dev/null || echo "unknown")
 if [ "$OWNER" = "root" ] && [ "$GROUP" = "libvirt" ]; then
     test_pass "ISO ownership is root:libvirt"
 else
@@ -117,14 +117,14 @@ else
 fi
 
 # Test 10: ISO contains user-data
-if sudo isoinfo -l -i /var/lib/libvirt/images/test-unit-valid-cloudinit.iso 2>/dev/null | grep -q "user-data"; then
+if sudo isoinfo -l -i /var/lib/libvirt/images/test-unit-valid-cloudinit.iso 2> /dev/null | grep -q "user-data"; then
     test_pass "ISO contains user-data"
 else
     test_fail "ISO contains user-data" "user-data not found in ISO"
 fi
 
 # Test 11: ISO contains meta-data
-if sudo isoinfo -l -i /var/lib/libvirt/images/test-unit-valid-cloudinit.iso 2>/dev/null | grep -q "meta-data"; then
+if sudo isoinfo -l -i /var/lib/libvirt/images/test-unit-valid-cloudinit.iso 2> /dev/null | grep -q "meta-data"; then
     test_pass "ISO contains meta-data"
 else
     test_fail "ISO contains meta-data" "meta-data not found in ISO"
