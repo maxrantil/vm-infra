@@ -7,6 +7,10 @@ set -euo pipefail
 # Get script directory for relative paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Path constants (reduces duplication)
+readonly PLAYBOOK_PATH="$SCRIPT_DIR/../ansible/playbook.yml"
+readonly PROVISION_SCRIPT="$SCRIPT_DIR/../provision-vm.sh"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -38,7 +42,7 @@ DRY_RUN_OUTPUT=""
 cache_dry_run_output() {
     if [ -z "$DRY_RUN_OUTPUT" ]; then
         set +e
-        DRY_RUN_OUTPUT=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --dry-run 2>&1)
+        DRY_RUN_OUTPUT=$("$PROVISION_SCRIPT" test-vm --dry-run 2>&1)
         set -e
     fi
 }
@@ -46,7 +50,7 @@ cache_dry_run_output() {
 # Helper: Check if playbook has a specific task
 playbook_has_task() {
     local task_name="$1"
-    grep -q "$task_name" "$SCRIPT_DIR/../ansible/playbook.yml"
+    grep -q "$task_name" "$PLAYBOOK_PATH"
 }
 
 # Test 1: No host SSH key copying (BEHAVIOR + IMPLEMENTATION)
@@ -63,12 +67,12 @@ test_no_ssh_key_copy() {
     fi
 
     # IMPLEMENTATION VERIFICATION: Confirm playbook lacks dangerous tasks
-    if grep -q "Copy GitHub SSH private key to VM" "$SCRIPT_DIR/../ansible/playbook.yml"; then
+    if grep -q "Copy GitHub SSH private key to VM" "$PLAYBOOK_PATH"; then
         fail "Playbook still contains 'Copy GitHub SSH private key to VM' task (SECURITY VULNERABILITY)"
         return 1
     fi
 
-    if grep -q "src: ~/.ssh/id_ed25519" "$SCRIPT_DIR/../ansible/playbook.yml"; then
+    if grep -q "src: ~/.ssh/id_ed25519" "$PLAYBOOK_PATH"; then
         fail "Playbook still references ~/.ssh/id_ed25519 (host SSH key should not be copied)"
         return 1
     fi
@@ -86,7 +90,7 @@ test_deploy_key_generation() {
     # Configuration should be valid (dry-run exits 0)
     local exit_code
     set +e
-    "$SCRIPT_DIR/../provision-vm.sh" test-vm --dry-run >/dev/null 2>&1
+    "$PROVISION_SCRIPT" test-vm --dry-run >/dev/null 2>&1
     exit_code=$?
     set -e
 
@@ -101,7 +105,7 @@ test_deploy_key_generation() {
         return 1
     fi
 
-    if ! grep -q "ssh-keygen.*vm-deploy" "$SCRIPT_DIR/../ansible/playbook.yml"; then
+    if ! grep -q "ssh-keygen.*vm-deploy" "$PLAYBOOK_PATH"; then
         fail "Playbook missing ssh-keygen command for deploy key generation"
         return 1
     fi
@@ -121,13 +125,13 @@ test_deploy_key_instructions() {
         return 1
     fi
 
-    if ! grep -q "MANUAL STEP REQUIRED" "$SCRIPT_DIR/../ansible/playbook.yml"; then
+    if ! grep -q "MANUAL STEP REQUIRED" "$PLAYBOOK_PATH"; then
         fail "Playbook missing manual step warning"
         return 1
     fi
 
     # Verify instructions mention GitHub repository
-    if ! grep -q "github.com/maxrantil/dotfiles" "$SCRIPT_DIR/../ansible/playbook.yml"; then
+    if ! grep -q "github.com/maxrantil/dotfiles" "$PLAYBOOK_PATH"; then
         fail "Playbook instructions missing GitHub repository URL"
         return 1
     fi
@@ -139,9 +143,10 @@ test_deploy_key_instructions() {
 test_deploy_key_permissions() {
     info "Test 4: Verify deploy key has correct permissions (0600)"
 
-    # IMPLEMENTATION VERIFICATION: Confirm correct permissions (owner-only, rw-------)
-    if ! grep -A 5 "Set deploy key permissions" "$SCRIPT_DIR/../ansible/playbook.yml" | grep -q "mode.*'0600'"; then
-        fail "Deploy key permissions not set to 0600"
+    # IMPLEMENTATION VERIFICATION: More robust check for mode 0600 near ssh_key_path
+    # Avoids brittleness of exact line count (-A 5)
+    if ! grep -B 2 -A 2 "mode.*'0600'" "$PLAYBOOK_PATH" | grep -q "path.*ssh_key_path"; then
+        fail "Deploy key permissions not set to 0600 or not associated with ssh_key_path"
         return 1
     fi
 
@@ -153,7 +158,7 @@ test_deploy_key_identifier() {
     info "Test 5: Verify deploy key includes VM hostname identifier"
 
     # IMPLEMENTATION VERIFICATION: Confirm VM-specific identifier
-    if ! grep -q "vm-deploy.*ansible_hostname" "$SCRIPT_DIR/../ansible/playbook.yml"; then
+    if ! grep -q "vm-deploy.*ansible_hostname" "$PLAYBOOK_PATH"; then
         fail "Deploy key does not include VM-specific identifier"
         return 1
     fi
@@ -166,12 +171,29 @@ test_deploy_key_algorithm() {
     info "Test 6: Verify deploy key uses ed25519 algorithm"
 
     # IMPLEMENTATION VERIFICATION: Confirm ed25519 algorithm
-    if ! grep -q "ssh-keygen -t ed25519" "$SCRIPT_DIR/../ansible/playbook.yml"; then
+    if ! grep -q "ssh-keygen -t ed25519" "$PLAYBOOK_PATH"; then
         fail "Deploy key does not use ed25519 algorithm"
         return 1
     fi
 
     pass "Deploy key uses ed25519 algorithm (modern, secure)"
+}
+
+# Test 7: Validate script dependencies exist
+test_dependencies_exist() {
+    info "Test 7: Verify required scripts and files exist"
+
+    if [ ! -x "$PROVISION_SCRIPT" ]; then
+        fail "provision-vm.sh not found or not executable"
+        return 1
+    fi
+
+    if [ ! -f "$PLAYBOOK_PATH" ]; then
+        fail "ansible/playbook.yml not found"
+        return 1
+    fi
+
+    pass "Required scripts and files exist"
 }
 
 # Main test execution
@@ -184,6 +206,7 @@ main() {
     echo ""
 
     # Run all tests (continue on failure to see all results)
+    test_dependencies_exist || true
     test_no_ssh_key_copy || true
     test_deploy_key_generation || true
     test_deploy_key_instructions || true
