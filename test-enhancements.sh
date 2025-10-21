@@ -31,8 +31,8 @@ test_fail() {
 }
 
 cleanup() {
-    sudo rm -f /var/lib/libvirt/images/test-*-cloudinit.iso 2>/dev/null || true
-    sudo rm -f /tmp/test_enh_*.pub 2>/dev/null || true
+    sudo rm -f /var/lib/libvirt/images/test-*-cloudinit.iso 2> /dev/null || true
+    sudo rm -f /tmp/test_enh_*.pub 2> /dev/null || true
 }
 
 trap cleanup EXIT
@@ -43,7 +43,7 @@ echo "========================================="
 echo ""
 
 # Generate valid SSH key for tests (for future test expansion)
-ssh-keygen -t rsa -b 2048 -f /tmp/test_enh_key -N "" -C "test@test.com" &>/dev/null
+ssh-keygen -t rsa -b 2048 -f /tmp/test_enh_key -N "" -C "test@test.com" &> /dev/null
 rm -f /tmp/test_enh_key /tmp/test_enh_key.pub
 
 echo "=== MRI-001: Temporary File Security ==="
@@ -76,9 +76,9 @@ EOFMOCK
 chmod +x "$MOCK_SCRIPT"
 
 # Check if script has error handling for chmod
-if grep -q 'chmod 640.*||' "$CREATE_ISO_SCRIPT" || \
-   grep -q 'if.*chmod 640' "$CREATE_ISO_SCRIPT" || \
-   grep -A 1 'chmod 640' "$CREATE_ISO_SCRIPT" | grep -q 'if \['; then
+if grep -q 'chmod 640.*||' "$CREATE_ISO_SCRIPT" ||
+    grep -q 'if.*chmod 640' "$CREATE_ISO_SCRIPT" ||
+    grep -A 1 'chmod 640' "$CREATE_ISO_SCRIPT" | grep -q 'if \['; then
     test_pass "Script has error handling for chmod failures"
 else
     test_fail "Script has error handling for chmod failures" "No error handling found for chmod command"
@@ -87,9 +87,9 @@ rm -f "$MOCK_SCRIPT"
 
 # Test 3: Script fails when chown fails on ISO
 echo "Test 3: Script detects chown failure"
-if grep -q 'chown.*||' "$CREATE_ISO_SCRIPT" || \
-   grep -q 'if.*chown' "$CREATE_ISO_SCRIPT" || \
-   grep -A 1 'chown' "$CREATE_ISO_SCRIPT" | grep -q 'if \['; then
+if grep -q 'chown.*||' "$CREATE_ISO_SCRIPT" ||
+    grep -q 'if.*chown' "$CREATE_ISO_SCRIPT" ||
+    grep -A 1 'chown' "$CREATE_ISO_SCRIPT" | grep -q 'if \['; then
     test_pass "Script has error handling for chown failures"
 else
     test_fail "Script has error handling for chown failures" "No error handling found for chown command"
@@ -101,9 +101,9 @@ echo ""
 
 # Test 4: Script validates genisoimage success
 echo "Test 4: Script validates genisoimage exit status"
-if grep -q 'genisoimage.*||' "$CREATE_ISO_SCRIPT" || \
-   grep -q 'if.*genisoimage' "$CREATE_ISO_SCRIPT" || \
-   grep -A 1 'genisoimage' "$CREATE_ISO_SCRIPT" | grep -q 'if \['; then
+if grep -q 'genisoimage.*||' "$CREATE_ISO_SCRIPT" ||
+    grep -q 'if.*genisoimage' "$CREATE_ISO_SCRIPT" ||
+    grep -A 1 'genisoimage' "$CREATE_ISO_SCRIPT" | grep -q 'if \['; then
     test_pass "Script has error handling for genisoimage failures"
 else
     test_fail "Script has error handling for genisoimage failures" "No error handling found for genisoimage command"
@@ -111,8 +111,8 @@ fi
 
 # Test 5: Script verifies ISO file exists after creation
 echo "Test 5: Script verifies ISO file exists after creation"
-if grep -A 10 'genisoimage' "$CREATE_ISO_SCRIPT" | grep -q 'if.*-f.*ISO_PATH' || \
-   grep -A 10 'genisoimage' "$CREATE_ISO_SCRIPT" | grep -q '\[ ! -f'; then
+if grep -A 10 'genisoimage' "$CREATE_ISO_SCRIPT" | grep -q 'if.*-f.*ISO_PATH' ||
+    grep -A 10 'genisoimage' "$CREATE_ISO_SCRIPT" | grep -q '\[ ! -f'; then
     test_pass "Script verifies ISO file existence"
 else
     test_fail "Script verifies ISO file existence" "No file existence check found after genisoimage"

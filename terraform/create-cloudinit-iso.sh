@@ -29,7 +29,7 @@ validate_ssh_key() {
     echo "$key" > "$temp_keyfile"
 
     # Use ssh-keygen to validate the key format
-    if ! ssh-keygen -l -f "$temp_keyfile" &>/dev/null; then
+    if ! ssh-keygen -l -f "$temp_keyfile" &> /dev/null; then
         rm -f "$temp_keyfile"
         echo "ERROR: Invalid SSH public key format" >&2
         return 1
@@ -105,7 +105,7 @@ sed -i "s|VM_NAME_PLACEHOLDER|$VM_NAME|g" "$TEMP_DIR/meta-data"
 ISO_PATH="/var/lib/libvirt/images/${VM_NAME}-cloudinit.iso"
 
 # MV-001 FIX: Validate genisoimage success and file creation
-if ! genisoimage -output "$ISO_PATH" -volid cidata -joliet -rock "$TEMP_DIR/user-data" "$TEMP_DIR/meta-data" 2>/dev/null; then
+if ! genisoimage -output "$ISO_PATH" -volid cidata -joliet -rock "$TEMP_DIR/user-data" "$TEMP_DIR/meta-data" 2> /dev/null; then
     echo "ERROR: Failed to create ISO with genisoimage" >&2
     exit 1
 fi
