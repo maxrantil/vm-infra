@@ -90,7 +90,7 @@ test_deploy_key_generation() {
     # Configuration should be valid (dry-run exits 0)
     local exit_code
     set +e
-    "$PROVISION_SCRIPT" test-vm --dry-run >/dev/null 2>&1
+    "$PROVISION_SCRIPT" test-vm --dry-run > /dev/null 2>&1
     exit_code=$?
     set -e
 
