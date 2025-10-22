@@ -1,0 +1,7 @@
+# ABOUTME: Git mailmap to normalize author identities and hide AI tool attribution
+# Per CLAUDE.md Section 3: No AI/tool attribution in contributors
+
+# Map Claude Code attribution to primary maintainer
+# This ensures all contributions appear under the human developer
+Max Rantil <rantil@pm.me> Claude <noreply@anthropic.com>
+maxrantil <rantil@pm.me> Claude <noreply@anthropic.com>
