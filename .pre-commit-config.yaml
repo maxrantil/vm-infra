@@ -15,7 +15,28 @@ repos:
       - id: detect-private-key
         name: Detect private keys
         description: Prevent committing SSH keys, API keys, certificates
+        exclude: tests/test_precommit_secrets.sh
 
+  # =============================================================================
+  # ADVANCED SECRET DETECTION (detect-secrets)
+  # =============================================================================
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        name: Detect secrets (advanced)
+        description: Catch AWS/GCP/Azure credentials, API keys, tokens, passwords
+        args:
+          - --baseline
+          - .secrets.baseline
+        exclude: (package-lock.json|tests/test_precommit_secrets.sh)
+
+  # =============================================================================
+  # GENERAL FILE QUALITY & SECURITY CHECKS (continued)
+  # =============================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
       - id: check-added-large-files
         name: Check for large files
         description: Prevent committing large binary files
@@ -291,6 +312,23 @@ repos:
 #       files: \.(ts|tsx)$
 #       args: [--noEmit]
 #       pass_filenames: false
+
+# =============================================================================
+# ANSIBLE VALIDATION
+# =============================================================================
+# TODO: Add ansible-lint when Python 3.13 compatibility is resolved
+# Issue: ansible-lint v6.22.1 and v24.10.0 both have import errors with Python 3.13
+# Error: ModuleNotFoundError: No module named 'ansible.parsing.yaml.constructor'
+# Workaround: Will revisit when ansible-lint officially supports Python 3.13
+#
+# - repo: https://github.com/ansible/ansible-lint
+#   rev: v6.22.1
+#   hooks:
+#     - id: ansible-lint
+#       name: Ansible lint
+#       description: Lint Ansible playbooks for best practices and errors
+#       files: \.(yaml|yml)$
+#       exclude: ^cloud-init/
 
 # =============================================================================
 # TERRAFORM/INFRASTRUCTURE
