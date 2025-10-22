@@ -313,6 +313,23 @@ repos:
 #       pass_filenames: false
 
 # =============================================================================
+# ANSIBLE VALIDATION
+# =============================================================================
+# TODO: Add ansible-lint when Python 3.13 compatibility is resolved
+# Issue: ansible-lint v6.22.1 and v24.10.0 both have import errors with Python 3.13
+# Error: ModuleNotFoundError: No module named 'ansible.parsing.yaml.constructor'
+# Workaround: Will revisit when ansible-lint officially supports Python 3.13
+#
+# - repo: https://github.com/ansible/ansible-lint
+#   rev: v6.22.1
+#   hooks:
+#     - id: ansible-lint
+#       name: Ansible lint
+#       description: Lint Ansible playbooks for best practices and errors
+#       files: \.(yaml|yml)$
+#       exclude: ^cloud-init/
+
+# =============================================================================
 # TERRAFORM/INFRASTRUCTURE
 # =============================================================================
   - repo: https://github.com/antonbabenko/pre-commit-terraform
