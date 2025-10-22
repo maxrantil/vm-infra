@@ -66,7 +66,7 @@ test_secrets_baseline_valid() {
     fi
 
     # Test 1b: Baseline is valid JSON
-    if python3 -c "import json; json.load(open('$PROJECT_ROOT/.secrets.baseline'))" 2>/dev/null; then
+    if python3 -c "import json; json.load(open('$PROJECT_ROOT/.secrets.baseline'))" 2> /dev/null; then
         assert_success "Baseline is valid JSON"
     else
         assert_failure "Baseline JSON parsing failed"
@@ -76,7 +76,7 @@ test_secrets_baseline_valid() {
     # Test 1c: Baseline has required fields
     local required_fields=("version" "plugins_used" "filters_used" "results" "generated_at")
     for field in "${required_fields[@]}"; do
-        if jq -e ".$field" "$PROJECT_ROOT/.secrets.baseline" >/dev/null 2>&1; then
+        if jq -e ".$field" "$PROJECT_ROOT/.secrets.baseline" > /dev/null 2>&1; then
             assert_success "Baseline has required field: $field"
         else
             assert_failure "Baseline missing field: $field"
@@ -264,7 +264,7 @@ test_baseline_plugin_coverage() {
     )
 
     for plugin in "${required_plugins[@]}"; do
-        if jq -e ".plugins_used[] | select(.name == \"$plugin\")" "$PROJECT_ROOT/.secrets.baseline" >/dev/null 2>&1; then
+        if jq -e ".plugins_used[] | select(.name == \"$plugin\")" "$PROJECT_ROOT/.secrets.baseline" > /dev/null 2>&1; then
             assert_success "Plugin enabled: $plugin"
         else
             assert_failure "Plugin missing: $plugin"
