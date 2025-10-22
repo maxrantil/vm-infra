@@ -15,6 +15,7 @@ repos:
       - id: detect-private-key
         name: Detect private keys
         description: Prevent committing SSH keys, API keys, certificates
+        exclude: tests/test_precommit_secrets.sh
 
   # =============================================================================
   # ADVANCED SECRET DETECTION (detect-secrets)
@@ -28,7 +29,7 @@ repos:
         args:
           - --baseline
           - .secrets.baseline
-        exclude: package-lock.json
+        exclude: (package-lock.json|tests/test_precommit_secrets.sh)
 
   # =============================================================================
   # GENERAL FILE QUALITY & SECURITY CHECKS (continued)
