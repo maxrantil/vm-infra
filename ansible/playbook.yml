@@ -26,256 +26,309 @@
     tmux_plugins_dir: "{{ user_home }}/.tmux/plugins/tpm"
 
   tasks:
-    - name: Ensure system is up to date
-      apt:
-        update_cache: yes
-        upgrade: dist
+    - block:
+        - name: Ensure system is up to date
+          apt:
+            update_cache: yes
+            upgrade: dist
 
-    - name: Install core packages
-      apt:
-        name:
-          # Core tools
-          - git
-          - curl
-          - wget
-          - vim
-          - neovim
-          - zsh
-          - build-essential
-          - python3
-          - python3-pip
-          - python3-venv
+        - name: Install core packages
+          apt:
+            name:
+              # Core tools
+              - git
+              - curl
+              - wget
+              - vim
+              - neovim
+              - zsh
+              - build-essential
+              - python3
+              - python3-pip
+              - python3-venv
 
-          # CLI productivity tools
-          - tmux
-          - bat
-          - fzf
-          - ripgrep
-          - fd-find
-          - jq
-          - tree
-          - htop
-          - ncdu
-          - tldr
+              # CLI productivity tools
+              - tmux
+              - bat
+              - fzf
+              - ripgrep
+              - fd-find
+              - jq
+              - tree
+              - htop
+              - ncdu
+              - tldr
 
-          # Development tools
-          - gh  # GitHub CLI
-          - shellcheck
-          - cmake
-          - ansible
+              # Development tools
+              - gh  # GitHub CLI
+              - shellcheck
+              - cmake
+              - ansible
 
-          # Utilities
-          - ccze
-          - unzip
-          - zip
-          - net-tools
+              # Utilities
+              - ccze
+              - unzip
+              - zip
+              - net-tools
 
-        state: present
+            state: present
 
-    # yq needs to be installed manually (not in Ubuntu repos with good version)
-    - name: Install yq
-      get_url:
-        url: https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-        dest: /usr/local/bin/yq
-        mode: '0755'
+        # yq needs to be installed manually (not in Ubuntu repos with good version)
+        - name: Install yq
+          get_url:
+            url: https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            dest: /usr/local/bin/yq
+            mode: '0755'
 
-    # fd is installed as fdfind on Ubuntu, create symlink
-    - name: Create fd symlink
-      file:
-        src: /usr/bin/fdfind
-        dest: /usr/local/bin/fd
-        state: link
+        # fd is installed as fdfind on Ubuntu, create symlink
+        - name: Create fd symlink
+          file:
+            src: /usr/bin/fdfind
+            dest: /usr/local/bin/fd
+            state: link
 
-    # bat is installed as batcat on Ubuntu, create symlink
-    - name: Create bat symlink
-      file:
-        src: /usr/bin/batcat
-        dest: /usr/local/bin/bat
-        state: link
+        # bat is installed as batcat on Ubuntu, create symlink
+        - name: Create bat symlink
+          file:
+            src: /usr/bin/batcat
+            dest: /usr/local/bin/bat
+            state: link
 
-    # Install git-delta for better diffs
-    - name: Get latest git-delta release URL
-      shell: curl -s https://api.github.com/repos/dandavison/delta/releases/latest | grep "browser_download_url.*x86_64-unknown-linux-gnu.tar.gz" | cut -d '"' -f 4
-      register: delta_url
-      changed_when: false
+        # Install git-delta for better diffs
+        - name: Get latest git-delta release URL
+          shell: curl -s https://api.github.com/repos/dandavison/delta/releases/latest | grep "browser_download_url.*x86_64-unknown-linux-gnu.tar.gz" | cut -d '"' -f 4
+          register: delta_url
+          changed_when: false
 
-    - name: Install git-delta
-      get_url:
-        url: "{{ delta_url.stdout }}"
-        dest: /tmp/delta.tar.gz
-        mode: '0644'
+        - name: Install git-delta
+          get_url:
+            url: "{{ delta_url.stdout }}"
+            dest: /tmp/delta.tar.gz
+            mode: '0644'
 
-    - name: Extract git-delta
-      unarchive:
-        src: /tmp/delta.tar.gz
-        dest: /tmp/
-        remote_src: yes
+        - name: Extract git-delta
+          unarchive:
+            src: /tmp/delta.tar.gz
+            dest: /tmp/
+            remote_src: yes
 
-    - name: Move delta binary to /usr/local/bin
-      shell: |
-        find /tmp -name delta -type f -executable -exec mv {} /usr/local/bin/delta \;
-        chmod +x /usr/local/bin/delta
-      args:
-        creates: /usr/local/bin/delta
+        - name: Move delta binary to /usr/local/bin
+          shell: |
+            find /tmp -name delta -type f -executable -exec mv {} /usr/local/bin/delta \;
+            chmod +x /usr/local/bin/delta
+          args:
+            creates: /usr/local/bin/delta
 
-    # Install starship prompt
-    - name: Download starship installer
-      get_url:
-        url: https://starship.rs/install.sh
-        dest: /tmp/starship-install.sh
-        mode: '0755'
+        # Install starship prompt
+        - name: Download starship installer
+          get_url:
+            url: https://starship.rs/install.sh
+            dest: /tmp/starship-install.sh
+            mode: '0755'
 
-    - name: Install starship
-      shell: /tmp/starship-install.sh -y
-      args:
-        creates: /usr/local/bin/starship
+        - name: Install starship
+          shell: /tmp/starship-install.sh -y
+          args:
+            creates: /usr/local/bin/starship
 
-    - name: Change default shell to zsh for user
-      user:
-        name: "{{ ansible_user }}"
-        shell: /usr/bin/zsh
+        - name: Change default shell to zsh for user
+          user:
+            name: "{{ ansible_user }}"
+            shell: /usr/bin/zsh
 
-    # Setup SSH for git operations
-    - name: Create .ssh directory for user
-      file:
-        path: "{{ ssh_dir }}"
-        state: directory
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0700'
+        # Setup SSH for git operations
+        - name: Create .ssh directory for user
+          file:
+            path: "{{ ssh_dir }}"
+            state: directory
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0700'
 
-    # CVE-2024-ANSIBLE-001: Generate VM-specific deploy keys (CVSS 9.3)
-    # Security: Each VM gets unique key instead of copying host SSH key
-    - name: Generate VM-specific deploy key
-      command: ssh-keygen -t ed25519 -f {{ ssh_key_path }} -N "" -C "vm-deploy-{{ ansible_hostname }}"
-      args:
-        creates: "{{ ssh_key_path }}"
-      become_user: "{{ ansible_user }}"
+        # CVE-2024-ANSIBLE-001: Generate VM-specific deploy keys (CVSS 9.3)
+        # Security: Each VM gets unique key instead of copying host SSH key
+        - name: Generate VM-specific deploy key
+          command: ssh-keygen -t ed25519 -f {{ ssh_key_path }} -N "" -C "vm-deploy-{{ ansible_hostname }}"
+          args:
+            creates: "{{ ssh_key_path }}"
+          become_user: "{{ ansible_user }}"
 
-    - name: Set deploy key permissions
-      file:
-        path: "{{ ssh_key_path }}"
-        mode: '0600'
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
+        - name: Set deploy key permissions
+          file:
+            path: "{{ ssh_key_path }}"
+            mode: '0600'
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
 
-    - name: Display public deploy key
-      shell: cat {{ ssh_pub_key_path }}
-      register: deploy_key_output
-      become_user: "{{ ansible_user }}"
-      changed_when: false
+        - name: Display public deploy key
+          shell: cat {{ ssh_pub_key_path }}
+          register: deploy_key_output
+          become_user: "{{ ansible_user }}"
+          changed_when: false
 
-    - name: Deploy key setup instructions
-      debug:
-        msg: |
-          ═══════════════════════════════════════════════════════════════
-          ⚠️  MANUAL STEP REQUIRED: Add Deploy Key to GitHub ⚠️
-          ═══════════════════════════════════════════════════════════════
+        - name: Deploy key setup instructions
+          debug:
+            msg: |
+              ═══════════════════════════════════════════════════════════════
+              ⚠️  MANUAL STEP REQUIRED: Add Deploy Key to GitHub ⚠️
+              ═══════════════════════════════════════════════════════════════
 
-          Copy the key below and add it to your GitHub repository:
+              Copy the key below and add it to your GitHub repository:
 
-          {{ deploy_key_output.stdout }}
+              {{ deploy_key_output.stdout }}
 
-          Steps:
-          1. Go to: https://github.com/maxrantil/dotfiles/settings/keys
-          2. Click "Add deploy key"
-          3. Title: vm-{{ ansible_hostname }}-deploy-key
-          4. Paste the key above
-          5. ✓ Check "Allow write access" if needed for push operations
-          6. Click "Add key"
+              Steps:
+              1. Go to: https://github.com/maxrantil/dotfiles/settings/keys
+              2. Click "Add deploy key"
+              3. Title: vm-{{ ansible_hostname }}-deploy-key
+              4. Paste the key above
+              5. ✓ Check "Allow write access" if needed for push operations
+              6. Click "Add key"
 
-          After adding the deploy key, dotfiles will be accessible from this VM.
-          ═══════════════════════════════════════════════════════════════
+              After adding the deploy key, dotfiles will be accessible from this VM.
+              ═══════════════════════════════════════════════════════════════
 
-    - name: Add GitHub to known hosts
-      known_hosts:
-        name: github.com
-        key: "{{ lookup('pipe', 'ssh-keyscan -t rsa github.com') }}"
-        path: "{{ ssh_dir }}/known_hosts"
-        state: present
-      become_user: "{{ ansible_user }}"
+        - name: Add GitHub to known hosts
+          known_hosts:
+            name: github.com
+            key: "{{ lookup('pipe', 'ssh-keyscan -t rsa github.com') }}"
+            path: "{{ ssh_dir }}/known_hosts"
+            state: present
+          become_user: "{{ ansible_user }}"
 
-    # Clone dotfiles repository
-    # CVE-4: Git shallow clone to limit history exposure (CVSS 7.5)
-    # BUG-007: Properly handle dotfiles_local_path variable (may have spaces)
-    - name: Clone dotfiles repository
-      git:
-        repo: "{% if dotfiles_local_path is defined and dotfiles_local_path != '' %}file://{{ dotfiles_local_path }}{% else %}{{ dotfiles_repo }}{% endif %}"
-        dest: "{{ dotfiles_dir }}"
-        clone: yes
-        update: yes
-        depth: 1
-      become_user: "{{ ansible_user }}"
+        # Clone dotfiles repository
+        # CVE-4: Git shallow clone to limit history exposure (CVSS 7.5)
+        # BUG-007: Properly handle dotfiles_local_path variable (may have spaces)
+        - name: Clone dotfiles repository
+          git:
+            repo: "{% if dotfiles_local_path is defined and dotfiles_local_path != '' %}file://{{ dotfiles_local_path }}{% else %}{{ dotfiles_repo }}{% endif %}"
+            dest: "{{ dotfiles_dir }}"
+            clone: yes
+            update: yes
+            depth: 1
+          become_user: "{{ ansible_user }}"
 
-    # Run dotfiles install script
-    - name: Run dotfiles install script
-      command: "{{ dotfiles_dir }}/install.sh"
-      become_user: "{{ ansible_user }}"
-      args:
-        creates: "{{ dotfiles_dir }}/.install_complete"
+        # Run dotfiles install script
+        - name: Run dotfiles install script
+          command: "{{ dotfiles_dir }}/install.sh"
+          become_user: "{{ ansible_user }}"
+          args:
+            creates: "{{ dotfiles_dir }}/.install_complete"
 
-    - name: Mark dotfiles installation as complete
-      file:
-        path: "{{ dotfiles_dir }}/.install_complete"
-        state: touch
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0644'
+        - name: Mark dotfiles installation as complete
+          file:
+            path: "{{ dotfiles_dir }}/.install_complete"
+            state: touch
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0644'
 
-    # Install zsh plugins
-    - name: Install zsh-syntax-highlighting
-      apt:
-        name: zsh-syntax-highlighting
-        state: present
+        # Install zsh plugins
+        - name: Install zsh-syntax-highlighting
+          apt:
+            name: zsh-syntax-highlighting
+            state: present
 
-    - name: Install zsh-autosuggestions
-      apt:
-        name: zsh-autosuggestions
-        state: present
+        - name: Install zsh-autosuggestions
+          apt:
+            name: zsh-autosuggestions
+            state: present
 
-    # Create nvim directories
-    - name: Create nvim undo directory
-      file:
-        path: "{{ nvim_undo_dir }}"
-        state: directory
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0700'
+        # Create nvim directories
+        - name: Create nvim undo directory
+          file:
+            path: "{{ nvim_undo_dir }}"
+            state: directory
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0700'
 
-    - name: Create nvim autoload directory
-      file:
-        path: "{{ nvim_autoload_dir }}"
-        state: directory
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0755'
+        - name: Create nvim autoload directory
+          file:
+            path: "{{ nvim_autoload_dir }}"
+            state: directory
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0755'
 
-    # Install vim-plug for neovim
-    - name: Install vim-plug for neovim
-      get_url:
-        url: https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-        dest: "{{ nvim_autoload_dir }}/plug.vim"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0644'
-      become_user: "{{ ansible_user }}"
+        # Install vim-plug for neovim
+        - name: Install vim-plug for neovim
+          get_url:
+            url: https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+            dest: "{{ nvim_autoload_dir }}/plug.vim"
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0644'
+          become_user: "{{ ansible_user }}"
 
-    # Install tmux plugin manager (TPM)
-    # Security: Use HTTPS for public repository (no deploy key needed)
-    - name: Clone TPM (tmux plugin manager)
-      git:
-        repo: https://github.com/tmux-plugins/tpm
-        dest: "{{ tmux_plugins_dir }}"
-        clone: yes
-        update: yes
-      become_user: "{{ ansible_user }}"
+        # Install tmux plugin manager (TPM)
+        # Security: Use HTTPS for public repository (no deploy key needed)
+        - name: Clone TPM (tmux plugin manager)
+          git:
+            repo: https://github.com/tmux-plugins/tpm
+            dest: "{{ tmux_plugins_dir }}"
+            clone: yes
+            update: yes
+          become_user: "{{ ansible_user }}"
 
-    - name: Configure SSH to disable password auth
-      lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?PasswordAuthentication'
-        line: 'PasswordAuthentication no'
-      notify: restart ssh
+        - name: Configure SSH to disable password auth
+          lineinfile:
+            path: /etc/ssh/sshd_config
+            regexp: '^#?PasswordAuthentication'
+            line: 'PasswordAuthentication no'
+          notify: restart ssh
+
+      rescue:
+        - name: Rollback - Remove partially installed packages
+          apt:
+            name: "{{ failed_packages | default([]) }}"
+            state: absent
+          when: failed_packages is defined
+          ignore_errors: yes
+
+        - name: Rollback - Remove dotfiles directory
+          file:
+            path: "{{ dotfiles_dir }}"
+            state: absent
+          when: dotfiles_cloned | default(false)
+          ignore_errors: yes
+
+        - name: Report failure and recovery guidance
+          debug:
+            msg: |
+              ═══════════════════════════════════════════════════════════════
+              ⚠️  PROVISIONING FAILED - VM in Partially Configured State  ⚠️
+              ═══════════════════════════════════════════════════════════════
+
+              The Ansible playbook encountered an error during provisioning.
+              Some cleanup tasks have been attempted, but manual intervention
+              may be required.
+
+              Recovery Options:
+
+              1. RECOMMENDED: Destroy and recreate the VM
+                 ./destroy-vm.sh {{ ansible_hostname }}
+                 ./provision-vm.sh {{ ansible_hostname }}
+
+              2. ALTERNATIVE: Manually fix the issue and re-run Ansible
+                 cd ansible
+                 ansible-playbook -i inventory.ini playbook.yml
+
+              3. Check the error messages above for specific failure details
+
+              ═══════════════════════════════════════════════════════════════
+
+      always:
+        - name: Log provisioning result
+          local_action:
+            module: copy
+            content: |
+              {{ ansible_date_time.iso8601 }}: Provisioning {{ 'FAILED' if ansible_failed_task is defined else 'COMPLETED' }} for {{ ansible_hostname }}
+              {% if ansible_failed_task is defined %}
+              Failed task: {{ ansible_failed_task.name }}
+              {% endif %}
+            dest: "./provisioning.log"
+          become: no
 
   handlers:
     - name: restart ssh

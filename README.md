@@ -300,6 +300,38 @@ cd terraform
 terraform destroy -var="vm_name=my-vm"
 ```
 
+## Error Handling and Rollback
+
+The Ansible playbook includes automatic error handling and rollback mechanisms:
+
+### Automatic Rollback on Failure
+
+If provisioning fails, the playbook automatically attempts to:
+- **Remove partially installed packages** (if tracked)
+- **Delete dotfiles directory** (if cloning was attempted)
+- **Display recovery guidance** with clear next steps
+
+### Recovery Options
+
+When provisioning fails, you have two options:
+
+**Option 1: Destroy and Recreate (Recommended)**
+```bash
+./destroy-vm.sh <vm-name>
+./provision-vm.sh <vm-name>
+```
+
+**Option 2: Fix and Re-run**
+```bash
+# Fix the underlying issue, then:
+cd ansible
+ansible-playbook -i inventory.ini playbook.yml
+```
+
+### Provisioning Logs
+
+All provisioning attempts (success or failure) are logged to `provisioning.log` in the ansible directory with timestamps and failure details.
+
 ## Troubleshooting
 
 ### Common Issues
