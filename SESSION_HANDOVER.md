@@ -73,11 +73,11 @@ This attempt (4 - 2025-10-31):
 ## 🎯 Current Project State
 
 **Tests**: ✅ All tests passing (29 integration + existing suite)
-**Branch**: chore/upgrade-pre-commit-hooks (ahead of origin/master by 1 commit)
-**Git Status**: ✅ Clean working directory (SESSION_HANDOVER.md modified)
-**Master Branch**: Clean history (commit deb72ff) - **Claude fully removed** ✅
-**Contributor Graph**: ✅ Only maxrantil (42 contributions) - Claude removed
-**Backup**: No longer needed (can be recreated if necessary)
+**Branch**: chore/upgrade-pre-commit-hooks (synced with origin)
+**Git Status**: ✅ Clean working directory
+**Master Branch**: Clean history (commit deb72ff) - **AI contributor fully removed** ✅
+**Contributor Graph**: ✅ Only maxrantil (42 contributions) - AI removed
+**Backup**: Cleaned up (no longer needed)
 
 ### Commit SHAs Evolution (Complete History)
 ```
@@ -93,14 +93,14 @@ Attempt 4:  deb72ffa8c7e79aa56f3ccf1b00b06e79e79aaaa (fully cleaned) ✅
 ## 📝 Startup Prompt for Next Session
 
 ```
-Read CLAUDE.md to understand our workflow, then continue development.
+Read CLAUDE.md to understand our workflow, then implement Issue #4.
 
-**Immediate priority**: Select and implement next backlog issue (suggested: #4 Ansible rollback handlers, 50 min)
-**Context**: Git history fully cleaned (SHA: deb72ff). Claude successfully removed from contributor graph. All systems green.
-**Reference docs**: SESSION_HANDOVER.md (this file), CLAUDE.md, GitHub issue backlog
-**Ready state**: Clean working directory on chore/upgrade-pre-commit-hooks branch, all tests passing, ready for new work
+**Immediate priority**: Issue #4 - Add rollback handlers to Ansible playbook (medium priority, ~50 min)
+**Context**: Git history cleanup complete (SHA: deb72ff). AI contributor removed from graph. Infrastructure at 8.5/10 security, 4.7/5.0 quality. All systems green.
+**Reference docs**: https://github.com/maxrantil/vm-infra/issues/4, SESSION_HANDOVER.md, CLAUDE.md
+**Ready state**: Clean working directory on chore/upgrade-pre-commit-hooks, all tests passing (29 integration + existing)
 
-**Expected scope**: Choose issue from backlog, create feature branch, implement using strict TDD workflow, achieve quality standards
+**Expected scope**: Add rescue/always blocks to playbook.yml for rollback on failures. Include cleanup tasks (remove partial packages/dotfiles), recovery guidance logging. Test deliberate failure scenario. Document in README. Full TDD workflow (RED→GREEN→REFACTOR).
 ```
 
 ---
