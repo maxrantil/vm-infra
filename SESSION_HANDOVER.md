@@ -39,7 +39,7 @@
   - `README.md`: Updated Deploy Key Setup section with interactive workflow
 - **User Benefit**: Seamless one-command provisioning with guided deploy key setup
 
-### 5. ZDOTDIR Starship Prompt Fix ✅ **PHASE 1 COMPLETE**
+### 5. ZDOTDIR Starship Prompt Fix ✅ **COMPLETE** (Both Phases)
 - **Problem**: Starship prompt not working on SSH login
   - `.zprofile` sets `ZDOTDIR=~/.config/zsh` (XDG Base Directory spec)
   - Dotfiles `install.sh` creates symlinks in `~/` not `~/.config/zsh/`
@@ -49,7 +49,8 @@
 - **Phase 1: Fix Root Cause in dotfiles repo** ✅ **COMPLETE**
   - Created GitHub Issue #56 in maxrantil/dotfiles
   - Implemented fix in `install.sh` to respect ZDOTDIR
-  - PR #57 submitted: https://github.com/maxrantil/dotfiles/pull/57
+  - PR #57: https://github.com/maxrantil/dotfiles/pull/57
+  - **Merged**: e3ee3ff (squash merge)
   - Changes:
     - Extract ZDOTDIR from .zprofile before linking
     - Create ZDOTDIR directory if needed
@@ -57,17 +58,19 @@
     - Backward compatible (works with/without ZDOTDIR)
   - All pre-commit hooks passed (ShellCheck, formatting, etc.)
 
-- **Phase 2: Clean up vm-infra workaround** ⏳ **PENDING PR MERGE**
-  - Wait for dotfiles PR #57 to merge
-  - Remove BUG-008 workaround from `ansible/playbook.yml` (lines 226-244)
-  - Update dotfiles submodule/dependency
-  - Test on next real VM provision
-  - Document cleanup in commit message
+- **Phase 2: Clean up vm-infra workaround** ✅ **COMPLETE**
+  - Removed BUG-008 workaround from `ansible/playbook.yml` (was lines 226-244)
+  - Playbook now relies on dotfiles fix (cleaner, DRY principle)
+  - Zero technical debt - workaround eliminated
+  - Next VM provision will use proper dotfiles fix automatically
 
-- **Current Status**:
-  - ✅ vm-infra workaround functional (BUG-008 in playbook.yml)
-  - ✅ dotfiles fix ready for review (PR #57)
-  - ⏳ Waiting for PR merge to proceed with Phase 2
+- **Final Result**:
+  - ✅ Root cause fixed in dotfiles repo (all users benefit)
+  - ✅ vm-infra simplified (19 lines removed)
+  - ✅ Single source of truth (dotfiles handles XDG spec)
+  - ✅ Zero technical debt (no workarounds)
+  - ✅ Proper separation of concerns
+  - 🎯 **Next VM provision**: Starship works automatically via dotfiles fix
 
 ### 6. Issues Identified
 - ⚠️ Ansible deprecation warning (`playbook.yml:324`)

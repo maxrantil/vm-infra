@@ -223,26 +223,6 @@
             group: "{{ ansible_user }}"
             mode: '0644'
 
-        # Fix ZDOTDIR configuration
-        # BUG-008: Dotfiles install.sh creates symlinks in ~/ but .zprofile sets ZDOTDIR=~/.config/zsh
-        # This causes zsh to not find .zshrc on SSH login, breaking starship prompt initialization
-        - name: Create XDG zsh config directory
-          file:
-            path: "{{ user_home }}/.config/zsh"
-            state: directory
-            owner: "{{ ansible_user }}"
-            group: "{{ ansible_user }}"
-            mode: '0755'
-
-        - name: Symlink .zshrc to ZDOTDIR location
-          file:
-            src: "{{ dotfiles_dir }}/.zshrc"
-            dest: "{{ user_home }}/.config/zsh/.zshrc"
-            state: link
-            owner: "{{ ansible_user }}"
-            group: "{{ ansible_user }}"
-            force: yes
-
         # Install zsh plugins
         - name: Install zsh-syntax-highlighting
           apt:
