@@ -328,6 +328,7 @@
               Failed task: {{ ansible_failed_task.name }}
               {% endif %}
             dest: "./provisioning.log"
+            mode: '0600'
           become: no
 
   handlers:
