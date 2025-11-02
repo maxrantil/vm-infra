@@ -27,10 +27,22 @@
 - ✅ Recovery instructions displayed
 - **Conclusion**: Issue #4 is **production-ready**
 
-### 4. Issues Identified
+### 4. Deploy Key UX Improvement ✅ **NEW**
+- **Problem**: Users had to manually find deploy key and add to GitHub, then re-run Ansible
+- **Solution**: Added interactive pause in `provision-vm.sh`
+  - Script displays deploy key after Ansible runs
+  - Pauses with clear instructions
+  - Offers to re-run Ansible after key is added
+  - Option to skip for manual setup later
+- **Files Modified**:
+  - `provision-vm.sh`: Added interactive deploy key setup (lines 595-639)
+  - `README.md`: Updated Deploy Key Setup section with interactive workflow
+- **User Benefit**: Seamless one-command provisioning with guided deploy key setup
+
+### 5. Issues Identified
 - ⚠️ Ansible deprecation warning (`playbook.yml:324`)
 - ⚠️ Python interpreter warning (non-blocking)
-- ⚠️ Starship prompt not auto-initialized (easy fix)
+- ⚠️ Starship prompt not auto-initialized (fixed by dotfiles, but should be in playbook)
 
 ---
 
