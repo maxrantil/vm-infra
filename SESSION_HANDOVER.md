@@ -39,10 +39,26 @@
   - `README.md`: Updated Deploy Key Setup section with interactive workflow
 - **User Benefit**: Seamless one-command provisioning with guided deploy key setup
 
-### 5. Issues Identified
+### 5. ZDOTDIR Starship Prompt Fix ✅ **NEW**
+- **Problem**: Starship prompt not working on SSH login
+  - `.zprofile` sets `ZDOTDIR=~/.config/zsh` (XDG Base Directory spec)
+  - Dotfiles `install.sh` creates symlinks in `~/` not `~/.config/zsh/`
+  - Zsh couldn't find `.zshrc`, starship never initialized
+  - Users saw plain `ubuntu-vm%` prompt instead of colored starship prompt
+- **Solution**: Added Ansible tasks to fix ZDOTDIR configuration
+  - Create `~/.config/zsh/` directory
+  - Symlink `.zshrc` to ZDOTDIR location
+  - Runs automatically after dotfiles installation
+- **Files Modified**:
+  - `ansible/playbook.yml`: Added BUG-008 fix (lines 226-244)
+- **User Benefit**: Starship prompt works immediately on first SSH login
+- **Root Cause**: Dotfiles repo bug - `install.sh` doesn't respect ZDOTDIR
+  - Can be fixed in dotfiles repo separately
+  - vm-infra now handles it automatically
+
+### 6. Issues Identified
 - ⚠️ Ansible deprecation warning (`playbook.yml:324`)
 - ⚠️ Python interpreter warning (non-blocking)
-- ⚠️ Starship prompt not auto-initialized (fixed by dotfiles, but should be in playbook)
 
 ---
 
@@ -112,9 +128,8 @@ Read CLAUDE.md to understand our workflow, then continue vm-infra improvements b
 **Expected scope**:
 1. Fix Ansible deprecation warning (playbook.yml:324) - 15 minutes
 2. Add Python interpreter config to inventory template - 10 minutes
-3. Fix starship auto-initialization in Ansible playbook - 15 minutes
-4. Review and plan Issue #82 integration test framework - 30 minutes
-5. **Optional**: Implement `--install-nodejs` flag for provision script - 45 minutes
+3. Review and plan Issue #82 integration test framework - 30 minutes
+4. **Optional**: Implement `--install-nodejs` flag for provision script - 45 minutes
 
 **Deliverable**: Clean Ansible playbook, integration test plan for Issue #82
 
@@ -148,15 +163,6 @@ Read CLAUDE.md to understand our workflow, then continue vm-infra improvements b
 ```ini
 [vms]
 <vm-ip> ansible_python_interpreter=/usr/bin/python3.10
-```
-
-### 3. Starship Init (playbook.yml)
-```yaml
-- name: Initialize starship prompt
-  lineinfile:
-    path: "{{ ansible_env.HOME }}/.zshrc"
-    line: 'eval "$(starship init zsh)"'
-    create: yes
 ```
 
 ---
