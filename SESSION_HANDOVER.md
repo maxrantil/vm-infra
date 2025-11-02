@@ -39,22 +39,35 @@
   - `README.md`: Updated Deploy Key Setup section with interactive workflow
 - **User Benefit**: Seamless one-command provisioning with guided deploy key setup
 
-### 5. ZDOTDIR Starship Prompt Fix ✅ **NEW**
+### 5. ZDOTDIR Starship Prompt Fix ✅ **PHASE 1 COMPLETE**
 - **Problem**: Starship prompt not working on SSH login
   - `.zprofile` sets `ZDOTDIR=~/.config/zsh` (XDG Base Directory spec)
   - Dotfiles `install.sh` creates symlinks in `~/` not `~/.config/zsh/`
   - Zsh couldn't find `.zshrc`, starship never initialized
   - Users saw plain `ubuntu-vm%` prompt instead of colored starship prompt
-- **Solution**: Added Ansible tasks to fix ZDOTDIR configuration
-  - Create `~/.config/zsh/` directory
-  - Symlink `.zshrc` to ZDOTDIR location
-  - Runs automatically after dotfiles installation
-- **Files Modified**:
-  - `ansible/playbook.yml`: Added BUG-008 fix (lines 226-244)
-- **User Benefit**: Starship prompt works immediately on first SSH login
-- **Root Cause**: Dotfiles repo bug - `install.sh` doesn't respect ZDOTDIR
-  - Can be fixed in dotfiles repo separately
-  - vm-infra now handles it automatically
+
+- **Phase 1: Fix Root Cause in dotfiles repo** ✅ **COMPLETE**
+  - Created GitHub Issue #56 in maxrantil/dotfiles
+  - Implemented fix in `install.sh` to respect ZDOTDIR
+  - PR #57 submitted: https://github.com/maxrantil/dotfiles/pull/57
+  - Changes:
+    - Extract ZDOTDIR from .zprofile before linking
+    - Create ZDOTDIR directory if needed
+    - Link .zshrc to correct location
+    - Backward compatible (works with/without ZDOTDIR)
+  - All pre-commit hooks passed (ShellCheck, formatting, etc.)
+
+- **Phase 2: Clean up vm-infra workaround** ⏳ **PENDING PR MERGE**
+  - Wait for dotfiles PR #57 to merge
+  - Remove BUG-008 workaround from `ansible/playbook.yml` (lines 226-244)
+  - Update dotfiles submodule/dependency
+  - Test on next real VM provision
+  - Document cleanup in commit message
+
+- **Current Status**:
+  - ✅ vm-infra workaround functional (BUG-008 in playbook.yml)
+  - ✅ dotfiles fix ready for review (PR #57)
+  - ⏳ Waiting for PR merge to proceed with Phase 2
 
 ### 6. Issues Identified
 - ⚠️ Ansible deprecation warning (`playbook.yml:324`)
