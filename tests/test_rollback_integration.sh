@@ -27,6 +27,9 @@ source "$SCRIPT_DIR/lib/cleanup.sh"
 # Test ID for resource tracking
 TEST_ID="rollback-integration-$$"
 
+# Clean up provisioning.log before tests (ensures clean slate)
+rm -f "$PROJECT_ROOT/ansible/provisioning.log"
+
 # Cleanup function for this test suite
 cleanup_on_exit() {
     local exit_code=$?
@@ -190,6 +193,7 @@ run_ansible_playbook() {
     local vm_name="$1"
     local vm_ip="$2"
     local output_file="${3:-/tmp/ansible-output-$$}"
+    local dotfiles_path="${4:-}"  # Optional: local dotfiles path for testing
 
     echo -e "${BLUE}  Running Ansible playbook...${NC}" >&2
 
@@ -204,7 +208,13 @@ EOF
 
     # Run playbook (capture output, allow failure)
     local exit_code=0
-    ansible-playbook -i "$inventory_file" playbook.yml > "$output_file" 2>&1 || exit_code=$?
+    if [[ -n "$dotfiles_path" ]]; then
+        # Use local dotfiles path for successful provisioning tests
+        ansible-playbook -i "$inventory_file" -e "dotfiles_local_path=$dotfiles_path" playbook.yml > "$output_file" 2>&1 || exit_code=$?
+    else
+        # Normal playbook run (may fail on git clone for failure tests)
+        ansible-playbook -i "$inventory_file" playbook.yml > "$output_file" 2>&1 || exit_code=$?
+    fi
 
     cd "$PROJECT_ROOT" || return 1
 
@@ -350,8 +360,82 @@ test_rescue_cleans_dotfiles_on_failure() {
 test_always_logs_success() {
     test_start "Always block creates provisioning.log on successful provision"
 
-    # TODO: Implement in next iteration
-    fail "Test not implemented yet" "Implementation" "Placeholder"
+    local vm_name="test-vm-log-success-$$"
+    local vm_ip
+    local ansible_output="/tmp/ansible-test3-$$"
+
+    # Provision VM (no playbook mutation - normal provisioning)
+    if ! vm_ip=$(provision_test_vm "$vm_name"); then
+        fail "Failed to provision test VM"
+        return
+    fi
+
+    # Wait for VM to be ready
+    if ! wait_for_vm_ready "$vm_ip"; then
+        fail "VM not ready for testing"
+        return
+    fi
+
+    # Run Ansible playbook (should succeed normally with local dotfiles)
+    local ansible_exit_code
+    ansible_exit_code=$(run_ansible_playbook "$vm_name" "$vm_ip" "$ansible_output" "/tmp/test-dotfiles")
+
+    # Verify playbook succeeded
+    if [[ $ansible_exit_code -ne 0 ]]; then
+        fail "Ansible playbook failed unexpectedly" "Exit code 0" "Exit code $ansible_exit_code"
+        cat "$ansible_output" >&2
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify provisioning.log exists
+    local log_file="$PROJECT_ROOT/ansible/provisioning.log"
+    if [[ ! -f "$log_file" ]]; then
+        fail "provisioning.log not created" "Log file exists" "File missing"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify log contains COMPLETED status (not FAILED)
+    if ! grep -q "COMPLETED" "$log_file"; then
+        fail "provisioning.log missing COMPLETED status" "COMPLETED in log" "Not found"
+        echo "Log contents:" >&2
+        cat "$log_file" >&2
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify log does NOT contain FAILED status
+    if grep -q "FAILED" "$log_file"; then
+        fail "provisioning.log contains FAILED on successful provision" "No FAILED status" "FAILED found"
+        echo "Log contents:" >&2
+        cat "$log_file" >&2
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify log contains timestamp (ISO8601 format: YYYY-MM-DD)
+    if ! grep -qE '[0-9]{4}-[0-9]{2}-[0-9]{2}' "$log_file"; then
+        fail "provisioning.log missing timestamp" "ISO8601 timestamp" "Not found"
+        echo "Log contents:" >&2
+        cat "$log_file" >&2
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify log contains hostname
+    if ! grep -q "$vm_name" "$log_file"; then
+        fail "provisioning.log missing hostname" "Hostname: $vm_name" "Not found"
+        echo "Log contents:" >&2
+        cat "$log_file" >&2
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Cleanup output file
+    rm -f "$ansible_output"
+
+    pass "Always block created provisioning.log with COMPLETED status on success"
 }
 
 # Test 4: Verify always block logs failure
@@ -378,35 +462,37 @@ test_rescue_preserves_vm_usability() {
     fail "Test not implemented yet" "Implementation" "Placeholder"
 }
 
-# Main execution
-echo -e "${YELLOW}========================================${NC}"
-echo -e "${YELLOW}Ansible Rollback Integration Tests${NC}"
-echo -e "${YELLOW}========================================${NC}"
-echo -e "${BLUE}Test ID: $TEST_ID${NC}"
-echo ""
-echo -e "${YELLOW}⚠️  WARNING: These tests provision real VMs${NC}"
-echo -e "${YELLOW}    Estimated runtime: 15-30 minutes${NC}"
-echo -e "${YELLOW}    Requires: libvirt/KVM, Terraform, Ansible${NC}"
-echo ""
+# Main execution (only run if executed directly, not sourced)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    echo -e "${YELLOW}========================================${NC}"
+    echo -e "${YELLOW}Ansible Rollback Integration Tests${NC}"
+    echo -e "${YELLOW}========================================${NC}"
+    echo -e "${BLUE}Test ID: $TEST_ID${NC}"
+    echo ""
+    echo -e "${YELLOW}⚠️  WARNING: These tests provision real VMs${NC}"
+    echo -e "${YELLOW}    Estimated runtime: 15-30 minutes${NC}"
+    echo -e "${YELLOW}    Requires: libvirt/KVM, Terraform, Ansible${NC}"
+    echo ""
 
-# Run all tests
-test_rescue_executes_on_package_failure
-test_rescue_cleans_dotfiles_on_failure
-test_always_logs_success
-test_always_logs_failure
-test_rescue_idempotent
-test_rescue_preserves_vm_usability
+    # Run all tests
+    test_rescue_executes_on_package_failure
+    test_rescue_cleans_dotfiles_on_failure
+    test_always_logs_success
+    test_always_logs_failure
+    test_rescue_idempotent
+    test_rescue_preserves_vm_usability
 
-# Print summary
-echo -e "\n${YELLOW}========================================${NC}"
-echo -e "${YELLOW}Test Summary${NC}"
-echo -e "${YELLOW}========================================${NC}"
-echo -e "Tests run:    $TESTS_RUN"
-echo -e "${GREEN}Tests passed: $TESTS_PASSED${NC}"
-if [ $TESTS_FAILED -gt 0 ]; then
-    echo -e "${RED}Tests failed: $TESTS_FAILED${NC}"
-else
-    echo -e "Tests failed: $TESTS_FAILED"
+    # Print summary
+    echo -e "\n${YELLOW}========================================${NC}"
+    echo -e "${YELLOW}Test Summary${NC}"
+    echo -e "${YELLOW}========================================${NC}"
+    echo -e "Tests run:    $TESTS_RUN"
+    echo -e "${GREEN}Tests passed: $TESTS_PASSED${NC}"
+    if [ $TESTS_FAILED -gt 0 ]; then
+        echo -e "${RED}Tests failed: $TESTS_FAILED${NC}"
+    else
+        echo -e "Tests failed: $TESTS_FAILED"
+    fi
 fi
 
 # Exit with appropriate code
