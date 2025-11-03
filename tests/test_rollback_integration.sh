@@ -153,7 +153,7 @@ wait_for_vm_ready() {
     local elapsed=0
     while [[ $elapsed -lt $max_wait ]]; do
         if ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
-            -o BatchMode=yes "ubuntu@$vm_ip" "echo test" > /dev/null 2>&1; then
+            -o BatchMode=yes "mr@$vm_ip" "echo test" > /dev/null 2>&1; then
             echo -e "${GREEN}  ✓ SSH accessible${NC}" >&2
             break
         fi
@@ -172,7 +172,7 @@ wait_for_vm_ready() {
     elapsed=0
     while [[ $elapsed -lt $max_wait ]]; do
         if ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
-            "ubuntu@$vm_ip" "cloud-init status --wait" > /dev/null 2>&1; then
+            "mr@$vm_ip" "cloud-init status --wait" > /dev/null 2>&1; then
             echo -e "${GREEN}  ✓ Cloud-init complete${NC}" >&2
             return 0
         fi
@@ -197,7 +197,7 @@ run_ansible_playbook() {
     local inventory_file="/tmp/test-inventory-$$"
     cat > "$inventory_file" <<EOF
 [$vm_name]
-$vm_ip ansible_user=ubuntu ansible_ssh_private_key_file=$HOME/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+$vm_ip ansible_user=mr ansible_ssh_private_key_file=$HOME/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no'
 EOF
 
     cd "$PROJECT_ROOT/ansible" || return 1
@@ -245,16 +245,10 @@ test_rescue_executes_on_package_failure() {
         return
     fi
 
-    # Run Ansible playbook (expect failure due to invalid package)
-    local ansible_exit_code
-    ansible_exit_code=$(run_ansible_playbook "$vm_name" "$vm_ip" "$ansible_output")
-
-    # Verify playbook failed (exit code != 0)
-    if [[ $ansible_exit_code -eq 0 ]]; then
-        fail "Ansible should have failed" "Non-zero exit code" "Exit code: $ansible_exit_code"
-        rm -f "$ansible_output"
-        return
-    fi
+    # Run Ansible playbook (expect package failure, but rescue should handle it)
+    # Note: Ansible returns exit code 0 when rescue block successfully handles errors
+    # We verify rescue execution through output messages and logs, not exit codes
+    run_ansible_playbook "$vm_name" "$vm_ip" "$ansible_output" > /dev/null
 
     # Verify rescue block executed (look for "Rollback" in output)
     if ! grep -q "Rollback" "$ansible_output"; then
