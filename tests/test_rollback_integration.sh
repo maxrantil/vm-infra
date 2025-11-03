@@ -92,13 +92,13 @@ restore_playbook() {
     fi
 }
 
-# Helper: Provision test VM using Terraform
+# Helper: Provision test VM using Terraform and return its IP
 provision_test_vm() {
     local vm_name="$1"
     local memory="${2:-2048}"  # Smaller for tests
     local vcpus="${3:-1}"
 
-    echo -e "${BLUE}  Provisioning test VM: $vm_name${NC}"
+    echo -e "${BLUE}  Provisioning test VM: $vm_name${NC}" >&2
 
     cd "$PROJECT_ROOT/terraform" || return 1
 
@@ -108,47 +108,54 @@ provision_test_vm() {
     fi
 
     # Apply terraform configuration
-    terraform apply -auto-approve \
+    if ! terraform apply -auto-approve \
         -var="vm_name=$vm_name" \
         -var="memory=$memory" \
         -var="vcpus=$vcpus" \
-        > /dev/null 2>&1
-
-    local result=$?
-    cd "$PROJECT_ROOT" || return 1
-
-    if [[ $result -eq 0 ]]; then
-        echo -e "${GREEN}  ✓ VM provisioned${NC}"
-        return 0
-    else
-        echo -e "${RED}  ✗ VM provisioning failed${NC}"
+        > /dev/null 2>&1; then
+        echo -e "${RED}  ✗ VM provisioning failed${NC}" >&2
+        cd "$PROJECT_ROOT" || return 1
         return 1
     fi
+
+    echo -e "${GREEN}  ✓ VM provisioned${NC}" >&2
+
+    # Get VM IP with retry (DHCP takes time)
+    echo -e "${BLUE}  Getting VM IP address...${NC}" >&2
+    local vm_ip
+    local retries=10
+    for ((i=1; i<=retries; i++)); do
+        vm_ip=$(terraform output -raw vm_ip 2>/dev/null || echo "pending")
+        if [[ "$vm_ip" != "pending" && -n "$vm_ip" ]]; then
+            echo -e "${GREEN}  ✓ VM IP: $vm_ip${NC}" >&2
+            cd "$PROJECT_ROOT" || return 1
+            echo "$vm_ip"  # Only the IP goes to stdout for capture
+            return 0
+        fi
+        sleep 2
+        terraform refresh -var="vm_name=$vm_name" -var="memory=$memory" -var="vcpus=$vcpus" > /dev/null 2>&1
+    done
+
+    echo -e "${RED}  ✗ Failed to get VM IP${NC}" >&2
+    cd "$PROJECT_ROOT" || return 1
+    return 1
 }
 
-# Helper: Wait for VM to be accessible via SSH and cloud-init to complete
-wait_for_vm() {
-    local vm_name="$1"
+# Helper: Wait for VM SSH and cloud-init (VM IP already known from provision)
+wait_for_vm_ready() {
+    local vm_ip="$1"
     local max_wait="${2:-180}"  # seconds
     local wait_interval=5
 
-    echo -e "${BLUE}  Waiting for VM to be ready...${NC}"
+    echo -e "${BLUE}  Waiting for SSH access...${NC}" >&2
 
-    # Get VM IP from virsh (use sudo for system libvirt)
-    local vm_ip
+    # Wait for SSH access
     local elapsed=0
-
-    # First wait for IP and SSH access
     while [[ $elapsed -lt $max_wait ]]; do
-        vm_ip=$(sudo virsh domifaddr "$vm_name" 2>/dev/null | grep -oP '(\d+\.){3}\d+' | head -1)
-
-        if [[ -n "$vm_ip" ]]; then
-            # Try SSH connection
-            if ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
-                -o BatchMode=yes "ubuntu@$vm_ip" "echo test" > /dev/null 2>&1; then
-                echo -e "${GREEN}  ✓ SSH accessible at $vm_ip${NC}"
-                break
-            fi
+        if ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+            -o BatchMode=yes "ubuntu@$vm_ip" "echo test" > /dev/null 2>&1; then
+            echo -e "${GREEN}  ✓ SSH accessible${NC}" >&2
+            break
         fi
 
         sleep $wait_interval
@@ -156,18 +163,17 @@ wait_for_vm() {
     done
 
     if [[ $elapsed -ge $max_wait ]]; then
-        echo -e "${RED}  ✗ Timeout waiting for SSH${NC}"
+        echo -e "${RED}  ✗ Timeout waiting for SSH${NC}" >&2
         return 1
     fi
 
     # Wait for cloud-init to complete
-    echo -e "${BLUE}  Waiting for cloud-init...${NC}"
+    echo -e "${BLUE}  Waiting for cloud-init...${NC}" >&2
     elapsed=0
     while [[ $elapsed -lt $max_wait ]]; do
         if ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
             "ubuntu@$vm_ip" "cloud-init status --wait" > /dev/null 2>&1; then
-            echo -e "${GREEN}  ✓ Cloud-init complete${NC}"
-            echo "$vm_ip"
+            echo -e "${GREEN}  ✓ Cloud-init complete${NC}" >&2
             return 0
         fi
 
@@ -175,7 +181,7 @@ wait_for_vm() {
         ((elapsed += wait_interval))
     done
 
-    echo -e "${RED}  ✗ Timeout waiting for cloud-init${NC}"
+    echo -e "${RED}  ✗ Timeout waiting for cloud-init${NC}" >&2
     return 1
 }
 
@@ -185,7 +191,7 @@ run_ansible_playbook() {
     local vm_ip="$2"
     local output_file="${3:-/tmp/ansible-output-$$}"
 
-    echo -e "${BLUE}  Running Ansible playbook...${NC}"
+    echo -e "${BLUE}  Running Ansible playbook...${NC}" >&2
 
     # Create temporary inventory
     local inventory_file="/tmp/test-inventory-$$"
@@ -205,7 +211,7 @@ EOF
     # Cleanup inventory
     rm -f "$inventory_file"
 
-    echo "$exit_code"
+    echo "$exit_code"  # Only exit code goes to stdout for capture
     return 0
 }
 
@@ -227,15 +233,15 @@ test_rescue_executes_on_package_failure() {
     echo -e "${BLUE}  Injecting package failure...${NC}"
     sed -i 's/- git$/- git\n              - invalid-package-that-does-not-exist-12345/' "$PLAYBOOK_PATH"
 
-    # Provision VM with Terraform
-    if ! provision_test_vm "$vm_name"; then
-        fail "Failed to provision test VM" "VM created" "Terraform failed"
+    # Provision VM with Terraform (returns IP)
+    if ! vm_ip=$(provision_test_vm "$vm_name"); then
+        fail "Failed to provision test VM" "VM created with IP" "Terraform failed"
         return
     fi
 
-    # Wait for VM to be ready
-    if ! vm_ip=$(wait_for_vm "$vm_name" 180); then
-        fail "VM not accessible" "SSH connection" "Timeout"
+    # Wait for VM to be ready (SSH + cloud-init)
+    if ! wait_for_vm_ready "$vm_ip" 180; then
+        fail "VM not accessible" "SSH and cloud-init ready" "Timeout"
         return
     fi
 
