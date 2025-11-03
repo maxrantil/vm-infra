@@ -2,5 +2,5 @@
 
 [vms]
 %{ if vm_ip != "" ~}
-${vm_ip} ansible_user=${vm_user} ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no'%{ if dotfiles_local_path != "" } dotfiles_local_path="${dotfiles_local_path}"%{ endif }
+${vm_ip} ansible_user=${vm_user} ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3%{ if dotfiles_local_path != "" } dotfiles_local_path="${dotfiles_local_path}"%{ endif }
 %{ endif ~}

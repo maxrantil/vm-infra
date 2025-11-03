@@ -320,8 +320,9 @@
 
       always:
         - name: Log provisioning result
-          local_action:
-            module: copy
+          delegate_to: localhost
+          become: no
+          copy:
             content: |
               {{ ansible_date_time.iso8601 }}: Provisioning {{ 'FAILED' if ansible_failed_task is defined else 'COMPLETED' }} for {{ ansible_hostname }}
               {% if ansible_failed_task is defined %}
@@ -329,7 +330,6 @@
               {% endif %}
             dest: "./provisioning.log"
             mode: '0600'
-          become: no
 
   handlers:
     - name: restart ssh
