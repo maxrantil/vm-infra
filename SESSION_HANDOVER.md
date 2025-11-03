@@ -2,6 +2,7 @@
 
 **Date**: 2025-11-03
 **Issue**: #82 - Add integration tests and functional state tracking for rollback handlers
+**PR**: #84 (Draft) - https://github.com/maxrantil/vm-infra/pull/84
 **Branch**: feat/issue-82-integration-tests
 **Part**: 1 of 5 (Functional State Tracking + Test Infrastructure)
 
@@ -68,7 +69,8 @@ Perfect RED → GREEN → REFACTOR workflow across 6 commits:
 - 7 commits ahead of master
 - All pre-commit hooks passed
 
-**CI/CD**: N/A (PR not yet created)
+**CI/CD**: N/A (tests run locally)
+**PR**: #84 (Draft) - Part 1 visibility
 
 ### Agent Validation Status
 **Part 1 scope only** - agent validation for full implementation:
@@ -86,7 +88,7 @@ Perfect RED → GREEN → REFACTOR workflow across 6 commits:
 ## 🚀 Next Session Priorities
 
 **Immediate Next Steps**:
-1. Create draft PR for Part 1 visibility (optional)
+1. ✅ Draft PR created (#84) for Part 1 visibility
 2. **Begin Part 2**: Integration Tests for Rollback Handlers (8-10 hours)
 
 ### Part 2 Scope (from ISSUE-82-INTEGRATION-TEST-PLAN.md)
