@@ -655,16 +655,156 @@ test_always_logs_failure() {
 test_rescue_idempotent() {
     test_start "Rescue block can be run multiple times without errors"
 
-    # TODO: Implement in next iteration
-    fail "Test not implemented yet" "Implementation" "Placeholder"
+    local vm_name="test-vm-idempotent-$$"
+    local vm_ip
+    local ansible_output1="/tmp/ansible-test5-run1-$$"
+    local ansible_output2="/tmp/ansible-test5-run2-$$"
+
+    # Backup original playbook
+    backup_file=$(backup_playbook)
+    trap 'restore_playbook "$backup_file"' RETURN
+
+    # Clean up old provisioning.log before test
+    rm -f "$PROJECT_ROOT/ansible/provisioning.log"
+
+    # Inject git clone failure (same as Test 2)
+    echo -e "${BLUE}  Injecting git clone failure for idempotency test...${NC}"
+    sed -i 's|repo: ".*"|repo: "file:///nonexistent/path/that/does/not/exist"|' "$PLAYBOOK_PATH"
+
+    # Provision VM
+    if ! vm_ip=$(provision_test_vm "$vm_name"); then
+        fail "Failed to provision test VM"
+        return
+    fi
+
+    # Wait for VM to be ready
+    if ! wait_for_vm_ready "$vm_ip"; then
+        fail "VM not ready for testing"
+        return
+    fi
+
+    # First run: Execute playbook with failure (rescue block should execute)
+    echo -e "${BLUE}  Running Ansible playbook (first run - rescue should execute)...${NC}"
+    run_ansible_playbook "$vm_name" "$vm_ip" "$ansible_output1" > /dev/null
+
+    # Verify first run executed rescue block
+    if ! grep -q "Rollback" "$ansible_output1"; then
+        fail "First run: Rescue block did not execute" "Rollback in output" "No rollback found"
+        rm -f "$ansible_output1" "$ansible_output2"
+        return
+    fi
+
+    # Second run: Execute playbook again with same failure (test idempotency)
+    echo -e "${BLUE}  Running Ansible playbook (second run - testing idempotency)...${NC}"
+    local ansible_exit_code
+    ansible_exit_code=$(run_ansible_playbook "$vm_name" "$vm_ip" "$ansible_output2")
+
+    # Verify second run also executed rescue block
+    if ! grep -q "Rollback" "$ansible_output2"; then
+        fail "Second run: Rescue block did not execute" "Rollback in output" "No rollback found"
+        rm -f "$ansible_output1" "$ansible_output2"
+        return
+    fi
+
+    # Verify second run succeeded (exit code 0)
+    if [[ $ansible_exit_code -ne 0 ]]; then
+        fail "Second run failed unexpectedly" "Exit code 0" "Exit code $ansible_exit_code"
+        echo "Second run output:" >&2
+        cat "$ansible_output2" >&2
+        rm -f "$ansible_output1" "$ansible_output2"
+        return
+    fi
+
+    # Verify VM still accessible after both runs
+    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "echo 'VM accessible'" 2>/dev/null | grep -q "VM accessible"; then
+        fail "VM not accessible after idempotency test" "SSH working" "SSH failed"
+        rm -f "$ansible_output1" "$ansible_output2"
+        return
+    fi
+
+    # Cleanup output files
+    rm -f "$ansible_output1" "$ansible_output2"
+
+    pass "Rescue block is idempotent (can run multiple times without errors)"
 }
 
 # Test 6: Verify rescue preserves VM usability
 test_rescue_preserves_vm_usability() {
     test_start "VM remains SSH-accessible and usable after rescue block executes"
 
-    # TODO: Implement in next iteration
-    fail "Test not implemented yet" "Implementation" "Placeholder"
+    local vm_name="test-vm-usability-$$"
+    local vm_ip
+    local ansible_output="/tmp/ansible-test6-$$"
+
+    # Backup original playbook
+    backup_file=$(backup_playbook)
+    trap 'restore_playbook "$backup_file"' RETURN
+
+    # Clean up old provisioning.log before test
+    rm -f "$PROJECT_ROOT/ansible/provisioning.log"
+
+    # Inject git clone failure (rescue block will clean up dotfiles)
+    echo -e "${BLUE}  Injecting git clone failure to test VM usability after rescue...${NC}"
+    sed -i 's|repo: ".*"|repo: "file:///nonexistent/path/that/does/not/exist"|' "$PLAYBOOK_PATH"
+
+    # Provision VM
+    if ! vm_ip=$(provision_test_vm "$vm_name"); then
+        fail "Failed to provision test VM"
+        return
+    fi
+
+    # Wait for VM to be ready
+    if ! wait_for_vm_ready "$vm_ip"; then
+        fail "VM not ready for testing"
+        return
+    fi
+
+    # Run Ansible playbook with failure (rescue block should execute)
+    run_ansible_playbook "$vm_name" "$vm_ip" "$ansible_output" > /dev/null
+
+    # Verify rescue block executed
+    if ! grep -q "Rollback" "$ansible_output"; then
+        fail "Rescue block did not execute" "Rollback in output" "No rollback found"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Test 1: Verify VM remains SSH-accessible
+    echo -e "${BLUE}  Verifying SSH accessibility after rescue...${NC}"
+    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "echo 'SSH test successful'" 2>/dev/null | grep -q "SSH test successful"; then
+        fail "VM not SSH-accessible after rescue" "SSH working" "SSH failed"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Test 2: Verify core packages still installed (from block: section before failure)
+    echo -e "${BLUE}  Verifying core packages still installed...${NC}"
+    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "which git && which zsh && which nvim" 2>/dev/null | grep -q "/usr/bin"; then
+        fail "Core packages not installed after rescue" "git/zsh/nvim present" "Packages missing"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Test 3: Verify user shell is zsh (from block: section before failure)
+    echo -e "${BLUE}  Verifying user shell configuration...${NC}"
+    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "grep '^mr:' /etc/passwd" 2>/dev/null | grep -q "/usr/bin/zsh"; then
+        fail "User shell not configured after rescue" "mr using zsh" "Shell not zsh"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Test 4: Verify VM can execute commands normally
+    echo -e "${BLUE}  Verifying VM can execute commands...${NC}"
+    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "ls /home/mr && whoami && hostname" 2>/dev/null | grep -q "mr"; then
+        fail "VM cannot execute commands after rescue" "Commands working" "Commands failed"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Cleanup output file
+    rm -f "$ansible_output"
+
+    pass "VM remains fully usable and accessible after rescue block execution"
 }
 
 # Main execution (only run if executed directly, not sourced)
