@@ -3,8 +3,97 @@
 **Date**: 2025-11-03
 **Issue**: #82 Part 2 - Integration Tests for Rollback Handlers
 **Branch**: `feat/issue-82-integration-tests`
-**Session**: Session 5 (Test 3 fixes applied, verification pending)
-**Status**: ✅ Test 1 GREEN, ✅ Test 2 GREEN, ⚠️ Test 3 RED (fixes applied, need verification), Tests 4-6 pending
+**Session**: Session 6 (Critical fix committed, Test 3 RED diagnosis)
+**Status**: ✅ Test 1 GREEN, ✅ Test 2 GREEN, 🔴 Test 3 RED (executes but fails on git clone), Tests 4-6 pending
+
+---
+
+## ⚠️ Session 6 Complete: Critical Fix Committed, Test 3 Still RED
+
+### 🎯 Major Achievement: Test 3 Now EXECUTES (Previously Failed Silently)
+
+**Commit**: `6367a00` - fix: move exit statements inside source guard (Test 3 GREEN prerequisite)
+
+**Critical Discovery**: The "bash source guard fix" from Session 5 was INCOMPLETE!
+
+**Problem**: Exit statements (lines 498-502) were OUTSIDE the source guard, causing immediate exit when test_rollback_integration.sh was sourced by test-only runners.
+
+**Impact**:
+- Test 3 isolated runner would source main script → immediately exit(0)
+- Test appeared to pass (exit 0) but NEVER actually ran
+- No error messages, no test execution - silent failure
+
+**Fix Applied** (commit `6367a00`):
+```bash
+# Before (lines 496-503):
+fi  # End of source guard
+
+# Exit with appropriate code (WRONG - executes when sourced!)
+if [ $TESTS_FAILED -gt 0 ]; then
+    exit 1
+else
+    exit 0
+fi
+
+# After (lines 497-503):
+    # Exit with appropriate code (CORRECT - inside source guard)
+    if [ $TESTS_FAILED -gt 0 ]; then
+        exit 1
+    else
+        exit 0
+    fi
+fi  # End of source guard
+```
+
+### 📊 Test 3 Progress Status
+
+✅ **What Works**:
+- Test 3 implementation complete (lines 360-438)
+- Log cleanup fix applied (lines 30-31)
+- Source guard fix applied and committed (lines 497-502)
+- Test 3 **NOW EXECUTES** (confirmed via test run)
+- Test output shows proper test structure
+
+🔴 **What Fails**:
+- Ansible git clone fails: "Failed task: Clone dotfiles repository"
+- Error shows in provisioning.log: "FAILED" status instead of "COMPLETED"
+- Git clone uses `file:///tmp/test-dotfiles` which should work
+
+### 🔍 Remaining Issue: Git Clone Failure
+
+**Evidence**:
+```
+✗ provisioning.log missing COMPLETED status
+  Expected: COMPLETED in log
+  Got: Not found
+Log contents:
+2025-11-03T12:12:43Z: Provisioning FAILED for ubuntu-vm
+Failed task: Clone dotfiles repository
+```
+
+**What We Know**:
+- ✅ `/tmp/test-dotfiles` exists and is valid git repo (checked)
+- ✅ Playbook uses `dotfiles_local_path` variable correctly (line 205)
+- ✅ Test passes `/tmp/test-dotfiles` to ansible-playbook (line 213)
+- ✅ Test function calls `run_ansible_playbook` with correct parameters (line 381)
+- 🔴 Git clone still fails despite everything appearing correct
+
+**Next Investigation Steps**:
+1. Check actual Ansible error output from `/tmp/ansible-test3-$$`
+2. Test `file:///tmp/test-dotfiles` URL manually with git clone on VM
+3. Investigate if VM can access host `/tmp` directory
+4. Check Ansible git module behavior with file:// URLs
+
+### 🎯 Session 6 Summary
+
+**Fixes Committed**: 1 critical fix (source guard completion)
+**Tests Status**:
+- Test 1: ✅ GREEN (validated)
+- Test 2: ✅ GREEN (validated)
+- Test 3: 🔴 RED (executes, fails on git clone)
+- Tests 4-6: ⏳ Not started
+
+**Key Achievement**: Test 3 now ACTUALLY RUNS (was silently failing before)
 
 ---
 
@@ -282,27 +371,35 @@ Each test follows same TDD cycle:
 
 ## 📝 Startup Prompt for Next Session
 
-Read CLAUDE.md to understand our workflow, then continue Issue #82 Part 2 with Test 3 verification.
+Read CLAUDE.md to understand our workflow, then diagnose Test 3 git clone failure (Issue #82 Part 2).
 
-**Immediate priority**: Test 3 GREEN Verification (~10 minutes total: 3-5 min verification + ~5 min test runtime)
+**Immediate priority**: Test 3 Git Clone Failure Diagnosis (~15-30 minutes investigation)
 
-**Context**: Test 1 GREEN, Test 2 GREEN. Test 3 fully implemented with comprehensive validations AND two critical fixes applied (log cleanup + bash source guard). Test has NOT yet been run with both fixes to verify GREEN status.
+**Context**: Test 1 GREEN, Test 2 GREEN. Test 3 NOW EXECUTES (critical source guard fix committed) but FAILS on git clone step. Ansible error: "Failed task: Clone dotfiles repository" despite `/tmp/test-dotfiles` being valid git repo.
 
-**Test 3 Status**: Complete implementation + 2 fixes applied, awaiting verification run
+**Test 3 Status**: 🔴 RED - Executes properly but fails on Ansible git clone
 
-**Two Critical Fixes Applied**:
-1. Provisioning.log cleanup (line 30-31) - ensures clean slate
-2. Bash source guard (lines 466-496) - prevents test execution during sourcing
+**Critical Fix Committed** (Session 6):
+- Commit `6367a00`: Moved exit statements inside source guard (lines 497-502)
+- Test 3 now actually runs (was silently failing before)
+- Test confirmed to reach git clone step before failing
+
+**Investigation Priorities**:
+1. Check Ansible error output: `/tmp/ansible-test3-*` files
+2. Test manual git clone on VM: `file:///tmp/test-dotfiles`
+3. Investigate VM access to host `/tmp` directory (likely issue)
+4. Consider alternative: Copy dotfiles to VM first, then clone locally
 
 **Reference docs**:
-- SESSION_HANDOVER.md (Session 5 diagnosis complete, fixes documented)
-- tests/test_rollback_integration.sh (Test 3 at lines 360-438, fixes at 30-31 and 466-496)
-- tests/test_rollback_integration_test3_only.sh (isolated runner, ready to use)
-- /tmp/test-dotfiles/ (dummy repo created and ready)
+- SESSION_HANDOVER.md (Session 6 findings, git clone failure documented)
+- tests/test_rollback_integration.sh:360-438 (Test 3 implementation)
+- tests/test_rollback_integration.sh:192-226 (run_ansible_playbook function)
+- ansible/playbook.yml:205 (git clone with dotfiles_local_path)
+- /tmp/test-dotfiles/ (valid git repo on host, may not be accessible from VM)
 
-**Ready state**: feat/issue-82-integration-tests branch, uncommitted changes (Test 3 implementation + fixes), 4 commits ahead of origin
+**Ready state**: feat/issue-82-integration-tests branch, clean working directory, 7 commits ahead of origin (source guard fix committed)
 
-**Expected scope**: Run `./tests/test_rollback_integration_test3_only.sh`, verify test PASSES (GREEN), commit with proper TDD message, add test3-only runner to git
+**Expected scope**: Diagnose why `file:///tmp/test-dotfiles` fails on VM, implement fix (likely copy-to-VM approach), verify Test 3 GREEN
 
 ---
 
