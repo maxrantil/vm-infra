@@ -293,7 +293,7 @@ test_rescue_cleans_dotfiles_on_failure() {
 
     # Inject invalid git repository URL into playbook
     echo -e "${BLUE}  Injecting git clone failure...${NC}"
-    sed -i 's|repo: ".*"|repo: "https://github.com/nonexistent/invalid-repo-that-does-not-exist-12345.git"|' "$PLAYBOOK_PATH"
+    sed -i 's|repo: ".*"|repo: "file:///nonexistent/path/that/does/not/exist"|' "$PLAYBOOK_PATH"
 
     # Provision VM with Terraform (returns IP)
     if ! vm_ip=$(provision_test_vm "$vm_name"); then
