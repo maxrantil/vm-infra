@@ -506,8 +506,149 @@ test_always_logs_success() {
 test_always_logs_failure() {
     test_start "Always block creates provisioning.log on failure with error details"
 
-    # TODO: Implement in next iteration
-    fail "Test not implemented yet" "Implementation" "Placeholder"
+    local vm_name="test-vm-log-failure-$$"
+    local vm_ip
+    local ansible_output="/tmp/ansible-test4-$$"
+
+    # Backup original playbook
+    backup_file=$(backup_playbook)
+    trap 'restore_playbook "$backup_file"' RETURN
+
+    # Clean up old provisioning.log before test (ensure fresh state)
+    rm -f "$PROJECT_ROOT/ansible/provisioning.log"
+
+    # Skip heavy tasks (minimal playbook for speed/stability)
+    echo -e "${BLUE}  Using minimal playbook to test always block on failure...${NC}"
+
+    # Skip git-delta tasks
+    sed -i '/- name: Get latest git-delta release URL/,/changed_when: false/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+    sed -i '/- name: Install git-delta/,/mode:/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+    sed -i '/- name: Extract git-delta/,/remote_src: yes/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+    sed -i '/- name: Move delta binary/,/creates: \/usr\/local\/bin\/delta/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+
+    # Skip starship tasks
+    sed -i '/- name: Download starship installer/,/mode: .0755./ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+    sed -i '/- name: Install starship/,/creates: \/usr\/local\/bin\/starship/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+
+    # Skip SSH/deploy key tasks
+    sed -i '/- name: Create \.ssh directory for user/,/mode: .0700./ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+    sed -i '/- name: Generate VM-specific deploy key/,/become_user:/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+    sed -i '/- name: Set deploy key permissions/,/group:/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+    sed -i '/- name: Deploy key setup instructions/,/- name: Add GitHub to known hosts/{
+      /- name: Add GitHub to known hosts/!d
+    }' "$PLAYBOOK_PATH"
+    sed -i '/- name: Add GitHub to known hosts/,/become_user:/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+
+    # Skip dotfiles tasks
+    sed -i '/- name: Clone dotfiles repository/,/register: dotfiles_clone_result/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+    sed -i '/- name: Run dotfiles install script/,/creates:/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+    sed -i '/- name: Mark dotfiles installation as complete/,/mode:/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+
+    # Skip zsh plugin tasks
+    sed -i '/- name: Install zsh-syntax-highlighting/,/state: present/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+    sed -i '/- name: Install zsh-autosuggestions/,/state: present/ {
+      /^[^#]/s/^/          # /
+    }' "$PLAYBOOK_PATH"
+
+    # Inject package failure (invalid package)
+    echo -e "${BLUE}  Injecting package failure to trigger always block...${NC}"
+    sed -i 's/- git$/- git\n              - invalid-package-that-does-not-exist-12345/' "$PLAYBOOK_PATH"
+
+    # Provision VM
+    if ! vm_ip=$(provision_test_vm "$vm_name"); then
+        fail "Failed to provision test VM"
+        return
+    fi
+
+    # Wait for VM to be ready
+    if ! wait_for_vm_ready "$vm_ip"; then
+        fail "VM not ready for testing"
+        return
+    fi
+
+    # Run Ansible playbook (expect failure, but always block should still execute)
+    local ansible_exit_code
+    ansible_exit_code=$(run_ansible_playbook "$vm_name" "$vm_ip" "$ansible_output")
+
+    # Note: With rescue block, Ansible returns 0 even on failure
+    # We verify failure through provisioning.log content, not exit code
+
+    # Verify provisioning.log exists
+    local log_file="$PROJECT_ROOT/ansible/provisioning.log"
+    if [[ ! -f "$log_file" ]]; then
+        fail "provisioning.log not created" "Log file exists" "File missing"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify log contains FAILED status
+    if ! grep -q "FAILED" "$log_file"; then
+        fail "provisioning.log missing FAILED status" "FAILED in log" "Not found"
+        echo "Log contents:" >&2
+        cat "$log_file" >&2
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify log does NOT contain COMPLETED status (should be failure)
+    if grep -q "COMPLETED" "$log_file"; then
+        fail "provisioning.log shows COMPLETED on failure" "No COMPLETED status" "COMPLETED found"
+        echo "Log contents:" >&2
+        cat "$log_file" >&2
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify log contains failed task name
+    if ! grep -q "Failed task:" "$log_file"; then
+        fail "provisioning.log missing failed task name" "Failed task in log" "Not found"
+        echo "Log contents:" >&2
+        cat "$log_file" >&2
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify log contains timestamp
+    if ! grep -qE '[0-9]{4}-[0-9]{2}-[0-9]{2}' "$log_file"; then
+        fail "provisioning.log missing timestamp" "ISO8601 timestamp" "Not found"
+        echo "Log contents:" >&2
+        cat "$log_file" >&2
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Cleanup output file
+    rm -f "$ansible_output"
+
+    pass "Always block created provisioning.log with FAILED status and error details"
 }
 
 # Test 5: Verify rescue block is idempotent
