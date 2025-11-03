@@ -3,8 +3,8 @@
 **Date**: 2025-11-03
 **Issue**: #82 Part 2 - Integration Tests for Rollback Handlers
 **Branch**: `feat/issue-82-integration-tests`
-**Session**: Session 2 (VM networking fix)
-**Status**: ✅ Test 1 GREEN - Rescue block validation passing!
+**Session**: Session 3 (Test 2 implementation)
+**Status**: ✅ Test 1 GREEN, Test 2 RED created (needs injection fix)
 
 ---
 
@@ -38,15 +38,18 @@ Tests passed: 1
 
 ---
 
-## ✅ Completed Work (This Session)
+## ✅ Completed Work (Session 3)
 
-### 1. Test Infrastructure (From Previous Session) ✅
-- **File**: `tests/test_rollback_integration.sh` (290 lines)
-- 6 test skeletons (Test 1 implemented, Tests 2-6 placeholders)
-- Helper functions for VM provisioning, SSH waiting, Ansible execution
-- Cleanup trap registration
+### 1. Test 2 RED Commit Created ✅
+**Commit**: `8b1477e` - test: implement Test 2 for git clone failure rescue (RED)
 
-### 2. Username Fixes (This Session) ✅
+**Changes**:
+- Test 2 implementation: `tests/test_rollback_integration.sh:280-347`
+- Helper script: `tests/test_rollback_integration_test2_only.sh`
+- Test logic: Inject invalid git repo URL, verify dotfiles directory removed
+- Pattern follows Test 1 (provision VM → inject failure → verify rescue)
+
+### 2. Test 1 Validation (Multiple Runs) ✅
 **Commit**: `2fbc662` - fix: Test 1 username mismatch and Ansible exit code logic (GREEN)
 
 **Changes**:
@@ -79,6 +82,20 @@ Tests passed: 1
 
 **Test Status**: **PASSING** ✅
 
+### 3. Test 2 Issue Discovered 🔧
+**Problem**: Git clone with invalid URL times out slowly (6+ minutes)
+- Sed injection works: `s|repo: ".*"|repo: "https://github.com/nonexistent/..."|`
+- But git waits for DNS/network timeout instead of failing fast
+- Test hung for 6+ minutes at git clone task
+
+**Root Cause**: Ansible `git` module has long network timeouts
+
+**Solution for Next Session**: Use local invalid path for instant failure:
+```bash
+sed -i 's|repo: ".*"|repo: "file:///nonexistent/path/that/does/not/exist"|'
+```
+This will fail immediately (file not found) vs. network timeout.
+
 ---
 
 ## 📁 Git Status
@@ -89,29 +106,39 @@ Tests passed: 1
 
 **Recent Commits**:
 ```
+8b1477e test: implement Test 2 for git clone failure rescue (RED)
+ea7a908 docs: session handoff for Issue #82 Part 2 (Test 1 GREEN complete)
 2fbc662 fix: Test 1 username mismatch and Ansible exit code logic (GREEN)
 eded029 feat: implement Test 1 helper functions with proper stderr handling (GREEN partial)
-704e416 fix: use sudo for system libvirt in integration tests (GREEN)
-ff61602 test: add integration test structure for rollback handlers (RED)
 ```
 
 **All Tests**:
-- Test 1: ✅ PASSING
-- Tests 2-6: ⚠️ Not implemented (placeholders)
+- Test 1: ✅ PASSING (verified multiple runs)
+- Test 2: 🔧 RED commit created, needs injection fix
+- Tests 3-6: ⚠️ Not implemented (placeholders)
 
 ---
 
 ## 🎯 Next Session Priorities
 
-### Immediate Priority: Test 2 Implementation (RED → GREEN → REFACTOR)
+### Immediate Priority: Fix Test 2 Injection (15 minutes)
 **Test**: `test_rescue_removes_dotfiles_on_git_clone_failure`
 
-**Pattern** (reuse from Test 1):
-1. **RED commit**: Implement test that injects git clone failure
-2. **GREEN commit**: Verify rescue block removes dotfiles directory
-3. **REFACTOR commit**: Extract common patterns if needed
+**Quick Fix**:
+1. Change sed injection from invalid URL to local path: `file:///nonexistent/path`
+2. Run test to verify GREEN (should complete in ~3-4 minutes)
+3. Create GREEN commit if passes
 
-**Estimated Time**: 2-3 hours (including 2-3 test run cycles)
+**Code Change** (line 296 in `tests/test_rollback_integration.sh`):
+```bash
+# OLD (times out):
+sed -i 's|repo: ".*"|repo: "https://github.com/nonexistent/invalid-repo-that-does-not-exist-12345.git"|' "$PLAYBOOK_PATH"
+
+# NEW (fails immediately):
+sed -i 's|repo: ".*"|repo: "file:///nonexistent/path/that/does/not/exist"|' "$PLAYBOOK_PATH"
+```
+
+**Estimated Time**: 15 min + 4 min test run = 19 minutes total
 
 ### Priority 2: Tests 3-6 Implementation (6-8 hours total)
 Each test follows same TDD cycle:
@@ -184,37 +211,41 @@ Each test follows same TDD cycle:
 
 ## 📝 Startup Prompt for Next Session
 
-Read CLAUDE.md to understand our workflow, then continue Issue #82 Part 2 from Test 1 GREEN completion.
+Read CLAUDE.md to understand our workflow, then continue Issue #82 Part 2 from Test 2 RED commit.
 
-**Immediate priority**: Test 2 RED commit - git clone failure rescue (2-3 hours)
+**Immediate priority**: Fix Test 2 git clone injection (15 min + 4 min test run)
 
-**Context**: Test 1 is now passing! Username mismatch resolved (ubuntu → mr in 3 locations). Rescue block executes correctly, Ansible returns proper exit code (0 when rescue handles errors). Infrastructure is solid and ready for Tests 2-6.
+**Context**: Test 1 GREEN and validated. Test 2 RED commit created (8b1477e) but git clone injection uses invalid URL that times out (6+ min). Need to change to local path `file:///nonexistent/path` for instant failure.
 
-**Next steps**:
-1. Implement Test 2: test_rescue_removes_dotfiles_on_git_clone_failure()
-2. Follow TDD: RED (failing test) → GREEN (minimal implementation) → REFACTOR
-3. Reuse helper functions from Test 1 (provision_test_vm, wait_for_vm_ready, run_ansible_playbook)
-4. Inject git clone failure via sed (similar to Test 1's package injection)
+**Quick fix location**: Line 296 in `tests/test_rollback_integration.sh`
+```bash
+# Change this line:
+sed -i 's|repo: ".*"|repo: "https://github.com/nonexistent/invalid-repo-that-does-not-exist-12345.git"|' "$PLAYBOOK_PATH"
+
+# To this:
+sed -i 's|repo: ".*"|repo: "file:///nonexistent/path/that/does/not/exist"|' "$PLAYBOOK_PATH"
+```
 
 **Reference docs**:
-- SESSION_HANDOVER.md (this file) - Test 1 complete
-- tests/test_rollback_integration.sh (line 218) - Test 1 pattern to follow
-- ansible/playbook.yml (lines 296-302) - Rescue block that removes dotfiles directory
+- SESSION_HANDOVER.md (this file) - Test 2 issue detailed
+- tests/test_rollback_integration.sh:280-347 - Test 2 implementation
+- tests/test_rollback_integration_test2_only.sh - Fast test runner
 
-**Ready state**: feat/issue-82-integration-tests branch, clean working directory, Test 1 GREEN (commit 2fbc662)
+**Ready state**: feat/issue-82-integration-tests branch, clean working directory, Test 1 GREEN (2fbc662), Test 2 RED (8b1477e)
 
-**Expected scope**: Complete Test 2 (RED → GREEN), optionally start Test 3
+**Expected scope**: Fix Test 2 injection, run test (should pass), create GREEN commit, optionally start Test 3
 
 ---
 
 ## ✅ Handoff Checklist
 
-- [x] Test 1 GREEN commit created and pushed
+- [x] Test 2 RED commit created (8b1477e)
+- [x] Test 2 timeout issue diagnosed (git clone with invalid URL)
+- [x] Solution documented (use local file path instead)
 - [x] All pre-commit hooks passing
 - [x] Session handoff document updated
 - [x] Startup prompt generated for next session
 - [x] Clean working directory verified
-- [x] Blocker resolved and documented
 
 ---
 
@@ -230,7 +261,7 @@ Read CLAUDE.md to understand our workflow, then continue Issue #82 Part 2 from T
 
 ---
 
-**End of Session Handoff - Test 1 GREEN Complete! 🎉**
+**End of Session Handoff - Test 2 RED Complete (needs fix) 🔧**
 
-**Status**: ✅ Test 1 passing, ready for Test 2
-**Next Session**: Test 2 RED → GREEN → REFACTOR
+**Status**: ✅ Test 1 GREEN, Test 2 RED created (injection method needs adjustment)
+**Next Session**: Fix Test 2 injection → GREEN → Tests 3-6
