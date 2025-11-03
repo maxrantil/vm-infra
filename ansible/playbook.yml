@@ -281,19 +281,23 @@
           notify: restart ssh
 
       rescue:
+        # State-tracked rollback: Only cleanup if the task was attempted and failed
+        # package_install_result is set via 'register:' directive in main tasks
         - name: Rollback - Remove partially installed packages
           apt:
-            autoremove: yes
-            purge: yes
+            autoremove: yes  # Remove orphaned dependencies
+            purge: yes       # Remove configuration files
           when: package_install_result is defined and package_install_result is failed
           ignore_errors: yes
 
+        # State-tracked rollback: Cleanup dotfiles if clone was attempted
+        # dotfiles_clone_result is set via 'register:' directive in main tasks
         - name: Rollback - Remove dotfiles directory
           file:
             path: "{{ dotfiles_dir }}"
             state: absent
           when: dotfiles_clone_result is defined
-          ignore_errors: yes
+          ignore_errors: yes  # Continue even if directory doesn't exist
 
         - name: Report failure and recovery guidance
           debug:
