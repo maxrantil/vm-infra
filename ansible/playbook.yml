@@ -72,6 +72,7 @@
               - net-tools
 
             state: present
+          register: package_install_result
 
         # yq needs to be installed manually (not in Ubuntu repos with good version)
         - name: Install yq
@@ -207,6 +208,7 @@
             update: yes
             depth: 1
           become_user: "{{ ansible_user }}"
+          register: dotfiles_clone_result
 
         # Run dotfiles install script
         - name: Run dotfiles install script
@@ -281,16 +283,16 @@
       rescue:
         - name: Rollback - Remove partially installed packages
           apt:
-            name: "{{ failed_packages | default([]) }}"
-            state: absent
-          when: failed_packages is defined
+            autoremove: yes
+            purge: yes
+          when: package_install_result is defined and package_install_result is failed
           ignore_errors: yes
 
         - name: Rollback - Remove dotfiles directory
           file:
             path: "{{ dotfiles_dir }}"
             state: absent
-          when: dotfiles_cloned | default(false)
+          when: dotfiles_clone_result is defined
           ignore_errors: yes
 
         - name: Report failure and recovery guidance
