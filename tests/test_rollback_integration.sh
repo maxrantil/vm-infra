@@ -281,8 +281,69 @@ test_rescue_executes_on_package_failure() {
 test_rescue_cleans_dotfiles_on_failure() {
     test_start "Rescue block removes dotfiles directory when git clone fails"
 
-    # TODO: Implement in next iteration
-    fail "Test not implemented yet" "Implementation" "Placeholder"
+    local vm_name="test-vm-rescue-git-$$"
+    local backup_file
+    local vm_ip
+    local ansible_output="/tmp/ansible-test2-$$"
+
+    # Backup original playbook
+    backup_file=$(backup_playbook)
+    # shellcheck disable=SC2064  # backup_file expansion needed at trap set time
+    trap "restore_playbook '$backup_file'" RETURN
+
+    # Inject invalid git repository URL into playbook
+    echo -e "${BLUE}  Injecting git clone failure...${NC}"
+    sed -i 's|repo: ".*"|repo: "https://github.com/nonexistent/invalid-repo-that-does-not-exist-12345.git"|' "$PLAYBOOK_PATH"
+
+    # Provision VM with Terraform (returns IP)
+    if ! vm_ip=$(provision_test_vm "$vm_name"); then
+        fail "Failed to provision test VM" "VM created with IP" "Terraform failed"
+        return
+    fi
+
+    # Wait for VM to be ready (SSH + cloud-init)
+    if ! wait_for_vm_ready "$vm_ip" 180; then
+        fail "VM not accessible" "SSH and cloud-init ready" "Timeout"
+        return
+    fi
+
+    # Run Ansible playbook (expect git clone failure, but rescue should handle it)
+    # Note: Ansible returns exit code 0 when rescue block successfully handles errors
+    run_ansible_playbook "$vm_name" "$vm_ip" "$ansible_output" > /dev/null
+
+    # Verify rescue block executed (look for "Rollback" in output)
+    if ! grep -q "Rollback" "$ansible_output"; then
+        fail "Rescue block did not execute" "Rollback messages in output" "No rollback found"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify dotfiles directory was removed on the VM
+    # The rescue block should remove ~/dotfiles after git clone fails
+    if ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "test -d ~/dotfiles" 2>/dev/null; then
+        fail "Dotfiles directory still exists after rescue" "Directory removed" "Directory found"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify provisioning.log exists and contains "FAILED"
+    local log_file="$PROJECT_ROOT/ansible/provisioning.log"
+    if [[ ! -f "$log_file" ]]; then
+        fail "provisioning.log not created" "Log file exists" "File missing"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    if ! grep -q "FAILED" "$log_file"; then
+        fail "provisioning.log missing FAILED status" "FAILED in log" "Not found"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Cleanup output file
+    rm -f "$ansible_output"
+
+    pass "Rescue block removed dotfiles directory after git clone failure"
 }
 
 # Test 3: Verify always block logs success
