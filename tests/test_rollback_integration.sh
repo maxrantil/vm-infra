@@ -493,11 +493,11 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     else
         echo -e "Tests failed: $TESTS_FAILED"
     fi
-fi
 
-# Exit with appropriate code
-if [ $TESTS_FAILED -gt 0 ]; then
-    exit 1
-else
-    exit 0
+    # Exit with appropriate code
+    if [ $TESTS_FAILED -gt 0 ]; then
+        exit 1
+    else
+        exit 0
+    fi
 fi
