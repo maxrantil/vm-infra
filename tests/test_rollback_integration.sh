@@ -92,29 +92,189 @@ restore_playbook() {
     fi
 }
 
+# Helper: Provision test VM using Terraform
+provision_test_vm() {
+    local vm_name="$1"
+    local memory="${2:-2048}"  # Smaller for tests
+    local vcpus="${3:-1}"
+
+    echo -e "${BLUE}  Provisioning test VM: $vm_name${NC}"
+
+    cd "$PROJECT_ROOT/terraform" || return 1
+
+    # Initialize terraform if needed
+    if [[ ! -d ".terraform" ]]; then
+        terraform init -upgrade > /dev/null 2>&1 || return 1
+    fi
+
+    # Apply terraform configuration
+    terraform apply -auto-approve \
+        -var="vm_name=$vm_name" \
+        -var="memory=$memory" \
+        -var="vcpus=$vcpus" \
+        > /dev/null 2>&1
+
+    local result=$?
+    cd "$PROJECT_ROOT" || return 1
+
+    if [[ $result -eq 0 ]]; then
+        echo -e "${GREEN}  ✓ VM provisioned${NC}"
+        return 0
+    else
+        echo -e "${RED}  ✗ VM provisioning failed${NC}"
+        return 1
+    fi
+}
+
+# Helper: Wait for VM to be accessible via SSH and cloud-init to complete
+wait_for_vm() {
+    local vm_name="$1"
+    local max_wait="${2:-180}"  # seconds
+    local wait_interval=5
+
+    echo -e "${BLUE}  Waiting for VM to be ready...${NC}"
+
+    # Get VM IP from virsh (use sudo for system libvirt)
+    local vm_ip
+    local elapsed=0
+
+    # First wait for IP and SSH access
+    while [[ $elapsed -lt $max_wait ]]; do
+        vm_ip=$(sudo virsh domifaddr "$vm_name" 2>/dev/null | grep -oP '(\d+\.){3}\d+' | head -1)
+
+        if [[ -n "$vm_ip" ]]; then
+            # Try SSH connection
+            if ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+                -o BatchMode=yes "ubuntu@$vm_ip" "echo test" > /dev/null 2>&1; then
+                echo -e "${GREEN}  ✓ SSH accessible at $vm_ip${NC}"
+                break
+            fi
+        fi
+
+        sleep $wait_interval
+        ((elapsed += wait_interval))
+    done
+
+    if [[ $elapsed -ge $max_wait ]]; then
+        echo -e "${RED}  ✗ Timeout waiting for SSH${NC}"
+        return 1
+    fi
+
+    # Wait for cloud-init to complete
+    echo -e "${BLUE}  Waiting for cloud-init...${NC}"
+    elapsed=0
+    while [[ $elapsed -lt $max_wait ]]; do
+        if ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+            "ubuntu@$vm_ip" "cloud-init status --wait" > /dev/null 2>&1; then
+            echo -e "${GREEN}  ✓ Cloud-init complete${NC}"
+            echo "$vm_ip"
+            return 0
+        fi
+
+        sleep $wait_interval
+        ((elapsed += wait_interval))
+    done
+
+    echo -e "${RED}  ✗ Timeout waiting for cloud-init${NC}"
+    return 1
+}
+
+# Helper: Run Ansible playbook against VM
+run_ansible_playbook() {
+    local vm_name="$1"
+    local vm_ip="$2"
+    local output_file="${3:-/tmp/ansible-output-$$}"
+
+    echo -e "${BLUE}  Running Ansible playbook...${NC}"
+
+    # Create temporary inventory
+    local inventory_file="/tmp/test-inventory-$$"
+    cat > "$inventory_file" <<EOF
+[$vm_name]
+$vm_ip ansible_user=ubuntu ansible_ssh_private_key_file=$HOME/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+EOF
+
+    cd "$PROJECT_ROOT/ansible" || return 1
+
+    # Run playbook (capture output, allow failure)
+    local exit_code=0
+    ansible-playbook -i "$inventory_file" playbook.yml > "$output_file" 2>&1 || exit_code=$?
+
+    cd "$PROJECT_ROOT" || return 1
+
+    # Cleanup inventory
+    rm -f "$inventory_file"
+
+    echo "$exit_code"
+    return 0
+}
+
 # Test 1: Verify rescue block executes on package installation failure
 test_rescue_executes_on_package_failure() {
     test_start "Rescue block executes when package installation fails"
 
-    # shellcheck disable=SC2034  # vm_name will be used when test is implemented
     local vm_name="test-vm-rescue-pkg-$$"
     local backup_file
+    local vm_ip
+    local ansible_output="/tmp/ansible-test1-$$"
 
     # Backup original playbook
     backup_file=$(backup_playbook)
     # shellcheck disable=SC2064  # backup_file expansion needed at trap set time
     trap "restore_playbook '$backup_file'" RETURN
 
-    # TODO: RED phase - This test will fail because implementation doesn't exist yet
-    # Need to:
-    # 1. Modify playbook to inject invalid package name
-    # 2. Provision VM (expect failure)
-    # 3. Capture ansible-playbook output
-    # 4. Verify rescue block tasks executed (look for "Rollback" messages)
-    # 5. Verify provisioning.log shows "FAILED" status
+    # Inject invalid package name into playbook
+    echo -e "${BLUE}  Injecting package failure...${NC}"
+    sed -i 's/- git$/- git\n              - invalid-package-that-does-not-exist-12345/' "$PLAYBOOK_PATH"
 
-    # For RED phase, just fail immediately to show test infrastructure works
-    fail "Test not implemented yet" "Implementation" "Placeholder"
+    # Provision VM with Terraform
+    if ! provision_test_vm "$vm_name"; then
+        fail "Failed to provision test VM" "VM created" "Terraform failed"
+        return
+    fi
+
+    # Wait for VM to be ready
+    if ! vm_ip=$(wait_for_vm "$vm_name" 180); then
+        fail "VM not accessible" "SSH connection" "Timeout"
+        return
+    fi
+
+    # Run Ansible playbook (expect failure due to invalid package)
+    local ansible_exit_code
+    ansible_exit_code=$(run_ansible_playbook "$vm_name" "$vm_ip" "$ansible_output")
+
+    # Verify playbook failed (exit code != 0)
+    if [[ $ansible_exit_code -eq 0 ]]; then
+        fail "Ansible should have failed" "Non-zero exit code" "Exit code: $ansible_exit_code"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify rescue block executed (look for "Rollback" in output)
+    if ! grep -q "Rollback" "$ansible_output"; then
+        fail "Rescue block did not execute" "Rollback messages in output" "No rollback found"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Verify provisioning.log exists and contains "FAILED"
+    local log_file="$PROJECT_ROOT/ansible/provisioning.log"
+    if [[ ! -f "$log_file" ]]; then
+        fail "provisioning.log not created" "Log file exists" "File missing"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    if ! grep -q "FAILED" "$log_file"; then
+        fail "provisioning.log missing FAILED status" "FAILED in log" "Not found"
+        rm -f "$ansible_output"
+        return
+    fi
+
+    # Cleanup output file
+    rm -f "$ansible_output"
+
+    pass "Rescue block executed and logged failure correctly"
 }
 
 # Test 2: Verify rescue cleans dotfiles directory on git clone failure

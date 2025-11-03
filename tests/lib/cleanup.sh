@@ -19,16 +19,16 @@ cleanup_test_vm() {
 
     echo -e "${BLUE}Cleaning up test VM: $vm_name${NC}"
 
-    # Check if VM exists
-    if ! virsh list --all | grep -q "$vm_name"; then
+    # Check if VM exists (use sudo for system libvirt)
+    if ! sudo virsh list --all | grep -q "$vm_name"; then
         echo -e "${YELLOW}  VM not found (already cleaned up)${NC}"
         return 0
     fi
 
     # Destroy (force stop) VM if running
-    if virsh list --state-running | grep -q "$vm_name"; then
+    if sudo virsh list --state-running | grep -q "$vm_name"; then
         echo -e "  Destroying running VM..."
-        if virsh destroy "$vm_name" 2>/dev/null; then
+        if sudo virsh destroy "$vm_name" 2>/dev/null; then
             echo -e "${GREEN}  ✓ VM destroyed${NC}"
         else
             echo -e "${YELLOW}  ⚠ Failed to destroy VM (may already be stopped)${NC}"
@@ -37,11 +37,11 @@ cleanup_test_vm() {
 
     # Undefine (remove) VM
     echo -e "  Undefining VM..."
-    if virsh undefine "$vm_name" --remove-all-storage 2>/dev/null; then
+    if sudo virsh undefine "$vm_name" --remove-all-storage 2>/dev/null; then
         echo -e "${GREEN}  ✓ VM undefined${NC}"
     else
         # Try without --remove-all-storage if that failed
-        if virsh undefine "$vm_name" 2>/dev/null; then
+        if sudo virsh undefine "$vm_name" 2>/dev/null; then
             echo -e "${GREEN}  ✓ VM undefined${NC}"
         else
             echo -e "${YELLOW}  ⚠ Failed to undefine VM (may already be removed)${NC}"
@@ -92,14 +92,14 @@ cleanup_test_artifacts() {
         echo -e "${GREEN}  ✓ Temp files removed${NC}"
     fi
 
-    # Clean up libvirt storage volumes for test VMs
+    # Clean up libvirt storage volumes for test VMs (use sudo for system libvirt)
     local pool_vols
-    if pool_vols=$(virsh vol-list default 2>/dev/null | grep "$test_id"); then
+    if pool_vols=$(sudo virsh vol-list default 2>/dev/null | grep "$test_id"); then
         echo -e "  Removing storage volumes..."
         while IFS= read -r line; do
             local vol_name
             vol_name=$(echo "$line" | awk '{print $1}')
-            if virsh vol-delete "$vol_name" --pool default 2>/dev/null; then
+            if sudo virsh vol-delete "$vol_name" --pool default 2>/dev/null; then
                 ((++artifacts_cleaned))
             fi
         done <<< "$pool_vols"
@@ -154,9 +154,9 @@ cleanup_all_test_resources() {
     echo -e "${BLUE}Cleaning up all test resources${NC}"
     echo -e "${BLUE}========================================${NC}"
 
-    # List and cleanup all test VMs (names containing "test-")
+    # List and cleanup all test VMs (names containing "test-") (use sudo for system libvirt)
     local test_vms
-    test_vms=$(virsh list --all --name 2>/dev/null | grep "test-" || true)
+    test_vms=$(sudo virsh list --all --name 2>/dev/null | grep "test-" || true)
 
     if [[ -n "$test_vms" ]]; then
         echo -e "${BLUE}Found test VMs to clean up:${NC}"
