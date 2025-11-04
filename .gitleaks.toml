@@ -11,6 +11,7 @@ paths = [
   '''\.github/workflows/.*''',
   '''terraform/.*\.example$''',  # Example files
   '''ansible/inventory\.example$''',  # Example inventory
+  '''\.secrets\.baseline$''',  # detect-secrets baseline file
 ]
 
 regexes = [
