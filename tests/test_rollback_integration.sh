@@ -98,7 +98,7 @@ restore_playbook() {
 # Helper: Provision test VM using Terraform and return its IP
 provision_test_vm() {
     local vm_name="$1"
-    local memory="${2:-2048}"  # Smaller for tests
+    local memory="${2:-2048}" # Smaller for tests
     local vcpus="${3:-1}"
 
     echo -e "${BLUE}  Provisioning test VM: $vm_name${NC}" >&2
@@ -127,12 +127,12 @@ provision_test_vm() {
     echo -e "${BLUE}  Getting VM IP address...${NC}" >&2
     local vm_ip
     local retries=10
-    for ((i=1; i<=retries; i++)); do
-        vm_ip=$(terraform output -raw vm_ip 2>/dev/null || echo "pending")
+    for ((i = 1; i <= retries; i++)); do
+        vm_ip=$(terraform output -raw vm_ip 2> /dev/null || echo "pending")
         if [[ "$vm_ip" != "pending" && -n "$vm_ip" ]]; then
             echo -e "${GREEN}  ✓ VM IP: $vm_ip${NC}" >&2
             cd "$PROJECT_ROOT" || return 1
-            echo "$vm_ip"  # Only the IP goes to stdout for capture
+            echo "$vm_ip" # Only the IP goes to stdout for capture
             return 0
         fi
         sleep 2
@@ -147,7 +147,7 @@ provision_test_vm() {
 # Helper: Wait for VM SSH and cloud-init (VM IP already known from provision)
 wait_for_vm_ready() {
     local vm_ip="$1"
-    local max_wait="${2:-180}"  # seconds
+    local max_wait="${2:-180}" # seconds
     local wait_interval=5
 
     echo -e "${BLUE}  Waiting for SSH access...${NC}" >&2
@@ -193,13 +193,13 @@ run_ansible_playbook() {
     local vm_name="$1"
     local vm_ip="$2"
     local output_file="${3:-/tmp/ansible-output-$$}"
-    local dotfiles_path="${4:-}"  # Optional: local dotfiles path for testing
+    local dotfiles_path="${4:-}" # Optional: local dotfiles path for testing
 
     echo -e "${BLUE}  Running Ansible playbook...${NC}" >&2
 
     # Create temporary inventory
     local inventory_file="/tmp/test-inventory-$$"
-    cat > "$inventory_file" <<EOF
+    cat > "$inventory_file" << EOF
 [$vm_name]
 $vm_ip ansible_user=mr ansible_ssh_private_key_file=$HOME/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no'
 EOF
@@ -221,7 +221,7 @@ EOF
     # Cleanup inventory
     rm -f "$inventory_file"
 
-    echo "$exit_code"  # Only exit code goes to stdout for capture
+    echo "$exit_code" # Only exit code goes to stdout for capture
     return 0
 }
 
@@ -330,7 +330,7 @@ test_rescue_cleans_dotfiles_on_failure() {
 
     # Verify dotfiles directory was removed on the VM
     # The rescue block should remove ~/dotfiles after git clone fails
-    if ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "test -d ~/dotfiles" 2>/dev/null; then
+    if ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "test -d ~/dotfiles" 2> /dev/null; then
         fail "Dotfiles directory still exists after rescue" "Directory removed" "Directory found"
         rm -f "$ansible_output"
         return
@@ -716,7 +716,7 @@ test_rescue_idempotent() {
     fi
 
     # Verify VM still accessible after both runs
-    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "echo 'VM accessible'" 2>/dev/null | grep -q "VM accessible"; then
+    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "echo 'VM accessible'" 2> /dev/null | grep -q "VM accessible"; then
         fail "VM not accessible after idempotency test" "SSH working" "SSH failed"
         rm -f "$ansible_output1" "$ansible_output2"
         return
@@ -771,7 +771,7 @@ test_rescue_preserves_vm_usability() {
 
     # Test 1: Verify VM remains SSH-accessible
     echo -e "${BLUE}  Verifying SSH accessibility after rescue...${NC}"
-    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "echo 'SSH test successful'" 2>/dev/null | grep -q "SSH test successful"; then
+    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "echo 'SSH test successful'" 2> /dev/null | grep -q "SSH test successful"; then
         fail "VM not SSH-accessible after rescue" "SSH working" "SSH failed"
         rm -f "$ansible_output"
         return
@@ -779,7 +779,7 @@ test_rescue_preserves_vm_usability() {
 
     # Test 2: Verify core packages still installed (from block: section before failure)
     echo -e "${BLUE}  Verifying core packages still installed...${NC}"
-    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "which git && which zsh && which nvim" 2>/dev/null | grep -q "/usr/bin"; then
+    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "which git && which zsh && which nvim" 2> /dev/null | grep -q "/usr/bin"; then
         fail "Core packages not installed after rescue" "git/zsh/nvim present" "Packages missing"
         rm -f "$ansible_output"
         return
@@ -787,7 +787,7 @@ test_rescue_preserves_vm_usability() {
 
     # Test 3: Verify user shell is zsh (from block: section before failure)
     echo -e "${BLUE}  Verifying user shell configuration...${NC}"
-    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "grep '^mr:' /etc/passwd" 2>/dev/null | grep -q "/usr/bin/zsh"; then
+    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "grep '^mr:' /etc/passwd" 2> /dev/null | grep -q "/usr/bin/zsh"; then
         fail "User shell not configured after rescue" "mr using zsh" "Shell not zsh"
         rm -f "$ansible_output"
         return
@@ -795,7 +795,7 @@ test_rescue_preserves_vm_usability() {
 
     # Test 4: Verify VM can execute commands normally
     echo -e "${BLUE}  Verifying VM can execute commands...${NC}"
-    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "ls /home/mr && whoami && hostname" 2>/dev/null | grep -q "mr"; then
+    if ! ssh -i "$HOME/.ssh/vm_key" -o StrictHostKeyChecking=no "mr@$vm_ip" "ls /home/mr && whoami && hostname" 2> /dev/null | grep -q "mr"; then
         fail "VM cannot execute commands after rescue" "Commands working" "Commands failed"
         rm -f "$ansible_output"
         return

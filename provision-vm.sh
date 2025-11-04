@@ -599,7 +599,7 @@ echo -e "${YELLOW}========================================${NC}"
 echo ""
 
 # Extract deploy key from VM
-DEPLOY_KEY=$(ssh -i ~/.ssh/vm_key mr@$VM_IP 'cat ~/.ssh/id_ed25519.pub' 2>/dev/null)
+DEPLOY_KEY=$(ssh -i ~/.ssh/vm_key mr@$VM_IP 'cat ~/.ssh/id_ed25519.pub' 2> /dev/null)
 
 if [ -n "$DEPLOY_KEY" ]; then
     echo "To complete dotfiles installation, add this deploy key to GitHub:"

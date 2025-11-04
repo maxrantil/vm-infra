@@ -109,7 +109,7 @@ test_rescue_conditional_is_functional() {
     fi
 
     # Anti-pattern 3: when: condition on undefined variable
-    if echo "$rescue_section" | grep "when:" | grep -qE "(failed_packages|dotfiles_cloned)" ; then
+    if echo "$rescue_section" | grep "when:" | grep -qE "(failed_packages|dotfiles_cloned)"; then
         if ! echo "$rescue_section" | grep -q "register:"; then
             echo -e "  ${RED}Issue: Conditionals use variables never registered${NC}"
             ((++issues_found))
@@ -157,7 +157,7 @@ test_state_tracking_enables_cleanup() {
         pass "State tracking complete: register + conditional rescue"
     else
         fail "State tracking incomplete" "register directives + rescue conditionals using results" \
-             "package_register=$has_package_register, dotfiles_register=$has_dotfiles_register, rescue_uses=$rescue_uses_results"
+            "package_register=$has_package_register, dotfiles_register=$has_dotfiles_register, rescue_uses=$rescue_uses_results"
     fi
 }
 

@@ -29,7 +29,7 @@ parse_args() {
                 CHECK_ONLY=1
                 shift
                 ;;
-            -h|--help)
+            -h | --help)
                 show_help
                 exit 0
                 ;;
@@ -43,7 +43,7 @@ parse_args() {
 }
 
 show_help() {
-    cat <<EOF
+    cat << EOF
 Usage: $(basename "$0") [OPTIONS]
 
 Automated test environment setup and validation for integration tests.

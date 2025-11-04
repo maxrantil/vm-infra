@@ -28,7 +28,7 @@ cleanup_test_vm() {
     # Destroy (force stop) VM if running
     if sudo virsh list --state-running | grep -q "$vm_name"; then
         echo -e "  Destroying running VM..."
-        if sudo virsh destroy "$vm_name" 2>/dev/null; then
+        if sudo virsh destroy "$vm_name" 2> /dev/null; then
             echo -e "${GREEN}  ✓ VM destroyed${NC}"
         else
             echo -e "${YELLOW}  ⚠ Failed to destroy VM (may already be stopped)${NC}"
@@ -37,11 +37,11 @@ cleanup_test_vm() {
 
     # Undefine (remove) VM
     echo -e "  Undefining VM..."
-    if sudo virsh undefine "$vm_name" --remove-all-storage 2>/dev/null; then
+    if sudo virsh undefine "$vm_name" --remove-all-storage 2> /dev/null; then
         echo -e "${GREEN}  ✓ VM undefined${NC}"
     else
         # Try without --remove-all-storage if that failed
-        if sudo virsh undefine "$vm_name" 2>/dev/null; then
+        if sudo virsh undefine "$vm_name" 2> /dev/null; then
             echo -e "${GREEN}  ✓ VM undefined${NC}"
         else
             echo -e "${YELLOW}  ⚠ Failed to undefine VM (may already be removed)${NC}"
@@ -70,7 +70,7 @@ cleanup_test_artifacts() {
     if compgen -G "$iso_pattern" > /dev/null 2>&1; then
         echo -e "  Removing cloud-init ISOs..."
         # shellcheck disable=SC2086
-        rm -f $iso_pattern 2>/dev/null && ((++artifacts_cleaned))
+        rm -f $iso_pattern 2> /dev/null && ((++artifacts_cleaned))
         echo -e "${GREEN}  ✓ Cloud-init ISOs removed${NC}"
     fi
 
@@ -79,7 +79,7 @@ cleanup_test_artifacts() {
     if compgen -G "$inventory_pattern" > /dev/null 2>&1; then
         echo -e "  Removing test inventory files..."
         # shellcheck disable=SC2086
-        rm -f $inventory_pattern 2>/dev/null && ((++artifacts_cleaned))
+        rm -f $inventory_pattern 2> /dev/null && ((++artifacts_cleaned))
         echo -e "${GREEN}  ✓ Test inventory files removed${NC}"
     fi
 
@@ -88,18 +88,18 @@ cleanup_test_artifacts() {
     if compgen -G "$temp_pattern" > /dev/null 2>&1; then
         echo -e "  Removing temp files..."
         # shellcheck disable=SC2086
-        rm -f $temp_pattern 2>/dev/null && ((++artifacts_cleaned))
+        rm -f $temp_pattern 2> /dev/null && ((++artifacts_cleaned))
         echo -e "${GREEN}  ✓ Temp files removed${NC}"
     fi
 
     # Clean up libvirt storage volumes for test VMs (use sudo for system libvirt)
     local pool_vols
-    if pool_vols=$(sudo virsh vol-list default 2>/dev/null | grep "$test_id"); then
+    if pool_vols=$(sudo virsh vol-list default 2> /dev/null | grep "$test_id"); then
         echo -e "  Removing storage volumes..."
         while IFS= read -r line; do
             local vol_name
             vol_name=$(echo "$line" | awk '{print $1}')
-            if sudo virsh vol-delete "$vol_name" --pool default 2>/dev/null; then
+            if sudo virsh vol-delete "$vol_name" --pool default 2> /dev/null; then
                 ((++artifacts_cleaned))
             fi
         done <<< "$pool_vols"
@@ -156,7 +156,7 @@ cleanup_all_test_resources() {
 
     # List and cleanup all test VMs (names containing "test-") (use sudo for system libvirt)
     local test_vms
-    test_vms=$(sudo virsh list --all --name 2>/dev/null | grep "test-" || true)
+    test_vms=$(sudo virsh list --all --name 2> /dev/null | grep "test-" || true)
 
     if [[ -n "$test_vms" ]]; then
         echo -e "${BLUE}Found test VMs to clean up:${NC}"
