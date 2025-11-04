@@ -120,6 +120,34 @@
           args:
             creates: /usr/local/bin/delta
 
+        # Install lf (terminal file manager)
+        - name: Get latest lf release URL
+          shell: curl -s https://api.github.com/repos/gokcehan/lf/releases/latest | grep "browser_download_url.*linux-amd64.tar.gz" | cut -d '"' -f 4
+          register: lf_url
+          changed_when: false
+
+        - name: Install lf
+          get_url:
+            url: "{{ lf_url.stdout }}"
+            dest: /tmp/lf.tar.gz
+            mode: '0644'
+
+        - name: Extract lf
+          unarchive:
+            src: /tmp/lf.tar.gz
+            dest: /tmp/
+            remote_src: yes
+
+        - name: Move lf binary to /usr/local/bin
+          command: mv /tmp/lf /usr/local/bin/lf
+          args:
+            creates: /usr/local/bin/lf
+
+        - name: Set lf executable permissions
+          file:
+            path: /usr/local/bin/lf
+            mode: '0755'
+
         # Install starship prompt
         - name: Download starship installer
           get_url:
