@@ -15,7 +15,7 @@ on:
 jobs:
   validate:
     name: Terraform Validation
-    uses: maxrantil/.github/.github/workflows/terraform-validate-reusable.yml@main
+    uses: maxrantil/.github/.github/workflows/terraform-validate-reusable.yml@master
     with:
       working-directory: 'terraform'
       terraform-version: 'latest'
