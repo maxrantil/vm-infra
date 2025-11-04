@@ -72,6 +72,7 @@
               - net-tools
 
             state: present
+          register: package_install_result
 
         # yq needs to be installed manually (not in Ubuntu repos with good version)
         - name: Install yq
@@ -207,6 +208,7 @@
             update: yes
             depth: 1
           become_user: "{{ ansible_user }}"
+          register: dotfiles_clone_result
 
         # Run dotfiles install script
         - name: Run dotfiles install script
@@ -279,19 +281,23 @@
           notify: restart ssh
 
       rescue:
+        # State-tracked rollback: Only cleanup if the task was attempted and failed
+        # package_install_result is set via 'register:' directive in main tasks
         - name: Rollback - Remove partially installed packages
           apt:
-            name: "{{ failed_packages | default([]) }}"
-            state: absent
-          when: failed_packages is defined
+            autoremove: yes  # Remove orphaned dependencies
+            purge: yes       # Remove configuration files
+          when: package_install_result is defined and package_install_result is failed
           ignore_errors: yes
 
+        # State-tracked rollback: Cleanup dotfiles if clone was attempted
+        # dotfiles_clone_result is set via 'register:' directive in main tasks
         - name: Rollback - Remove dotfiles directory
           file:
             path: "{{ dotfiles_dir }}"
             state: absent
-          when: dotfiles_cloned | default(false)
-          ignore_errors: yes
+          when: dotfiles_clone_result is defined
+          ignore_errors: yes  # Continue even if directory doesn't exist
 
         - name: Report failure and recovery guidance
           debug:
@@ -320,8 +326,9 @@
 
       always:
         - name: Log provisioning result
-          local_action:
-            module: copy
+          delegate_to: localhost
+          become: no
+          copy:
             content: |
               {{ ansible_date_time.iso8601 }}: Provisioning {{ 'FAILED' if ansible_failed_task is defined else 'COMPLETED' }} for {{ ansible_hostname }}
               {% if ansible_failed_task is defined %}
@@ -329,7 +336,6 @@
               {% endif %}
             dest: "./provisioning.log"
             mode: '0600'
-          become: no
 
   handlers:
     - name: restart ssh

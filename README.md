@@ -224,17 +224,60 @@ VMs use repository-specific deploy keys instead of copying your personal SSH key
 - **Following least privilege** - Deploy keys are repository-specific
 - **Protecting your account** - Your personal SSH key never leaves your machine
 
-### After Provisioning
+### Interactive Setup (Recommended)
 
-When Ansible completes, it will display the public deploy key. Follow these steps:
+The provision script now includes an **interactive deploy key setup** that pauses after Ansible runs:
 
-1. Copy the displayed public key
+```bash
+./provision-vm.sh my-vm
+# ... provisioning happens ...
+# Script will pause and display:
+
+========================================
+  📋 DEPLOY KEY SETUP REQUIRED
+========================================
+
+To complete dotfiles installation, add this deploy key to GitHub:
+
+ssh-ed25519 AAAAC3Nza... vm-my-vm-deploy-key
+
+Steps:
+  1. Open: https://github.com/maxrantil/dotfiles/settings/keys
+  2. Click 'Add deploy key'
+  3. Title: my-vm-deploy-key
+  4. Paste the key above
+  5. ✓ Check 'Allow write access' (if needed)
+  6. Click 'Add key'
+
+Would you like to pause here to add the deploy key?
+Press ENTER after adding the key, or type 'skip' to continue without dotfiles:
+```
+
+**Options:**
+- Press **ENTER**: Script will wait for you to add the key, then automatically re-run Ansible to install dotfiles
+- Type **skip**: Continue without dotfiles (you can install them manually later)
+
+### Manual Setup (Alternative)
+
+If you skipped the interactive setup or need to add the key later:
+
+1. Retrieve the deploy key from the VM:
+   ```bash
+   ssh -i ~/.ssh/vm_key mr@<VM_IP> 'cat ~/.ssh/id_ed25519.pub'
+   ```
+
 2. Go to: https://github.com/maxrantil/dotfiles/settings/keys
 3. Click "Add deploy key"
-4. Title: `vm-<hostname>-deploy-key`
+4. Title: `<vm-name>-deploy-key`
 5. Paste the key
 6. ✓ Check "Allow write access" (only if pushing from VM)
 7. Click "Add key"
+
+8. Re-run Ansible to install dotfiles:
+   ```bash
+   cd ansible
+   ansible-playbook -i inventory.ini playbook.yml
+   ```
 
 ### Key Rotation
 

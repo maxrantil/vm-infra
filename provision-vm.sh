@@ -593,6 +593,52 @@ if ! ansible-playbook -i inventory.ini playbook.yml; then
 fi
 
 echo ""
+echo -e "${YELLOW}========================================${NC}"
+echo -e "${YELLOW}  📋 DEPLOY KEY SETUP REQUIRED${NC}"
+echo -e "${YELLOW}========================================${NC}"
+echo ""
+
+# Extract deploy key from VM
+DEPLOY_KEY=$(ssh -i ~/.ssh/vm_key mr@$VM_IP 'cat ~/.ssh/id_ed25519.pub' 2> /dev/null)
+
+if [ -n "$DEPLOY_KEY" ]; then
+    echo "To complete dotfiles installation, add this deploy key to GitHub:"
+    echo ""
+    echo -e "${GREEN}$DEPLOY_KEY${NC}"
+    echo ""
+    echo "Steps:"
+    echo "  1. Open: https://github.com/maxrantil/dotfiles/settings/keys"
+    echo "  2. Click 'Add deploy key'"
+    echo "  3. Title: ${VM_NAME}-deploy-key"
+    echo "  4. Paste the key above"
+    echo "  5. ✓ Check 'Allow write access' (if needed)"
+    echo "  6. Click 'Add key'"
+    echo ""
+    echo -e "${YELLOW}Would you like to pause here to add the deploy key?${NC}"
+    echo "Press ENTER after adding the key, or type 'skip' to continue without dotfiles:"
+    read -r DEPLOY_KEY_RESPONSE
+
+    if [ "$DEPLOY_KEY_RESPONSE" != "skip" ]; then
+        echo ""
+        echo -e "${YELLOW}Re-running Ansible to install dotfiles...${NC}"
+        if ansible-playbook -i inventory.ini playbook.yml; then
+            echo -e "${GREEN}✓ Dotfiles installation complete${NC}"
+        else
+            echo -e "${RED}⚠ Dotfiles installation failed - you can retry manually:${NC}" >&2
+            echo "  cd ansible && ansible-playbook -i inventory.ini playbook.yml" >&2
+        fi
+    else
+        echo -e "${YELLOW}⚠ Skipping dotfiles installation${NC}"
+        echo "To install dotfiles later:"
+        echo "  1. Add deploy key to GitHub (see above)"
+        echo "  2. Run: cd ansible && ansible-playbook -i inventory.ini playbook.yml"
+    fi
+else
+    echo -e "${RED}⚠ Could not retrieve deploy key from VM${NC}" >&2
+    echo "You can retrieve it manually: ssh -i ~/.ssh/vm_key mr@$VM_IP 'cat ~/.ssh/id_ed25519.pub'" >&2
+fi
+
+echo ""
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  ✓ VM Provisioning Complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
