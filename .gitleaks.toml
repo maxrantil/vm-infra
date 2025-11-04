@@ -1,0 +1,22 @@
+title = "Gitleaks Config for vm-infra"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow known false positives"
+paths = [
+  '''README\.md$''',
+  '''docs/.*\.md$''',
+  '''\.github/workflows/.*''',
+  '''terraform/.*\.example$''',  # Example files
+  '''ansible/inventory\.example$''',  # Example inventory
+  '''\.secrets\.baseline$''',  # detect-secrets baseline file
+]
+
+regexes = [
+  '''example\.com''',
+  '''REPLACEME''',
+  '''EXAMPLE_.*''',
+  '''your-.*-here''',
+]
