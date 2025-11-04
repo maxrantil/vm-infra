@@ -1,0 +1,22 @@
+# ABOUTME: Validates Terraform configurations using centralized reusable workflow
+name: Terraform Validation
+
+on:
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform-validation.yml'
+  push:
+    branches: [master, main]
+    paths:
+      - 'terraform/**'
+
+jobs:
+  validate:
+    name: Terraform Validation
+    uses: maxrantil/.github/.github/workflows/terraform-validate-reusable.yml@main
+    with:
+      working-directory: 'terraform'
+      terraform-version: 'latest'
+      run-plan: false
