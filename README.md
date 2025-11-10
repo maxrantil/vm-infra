@@ -375,6 +375,158 @@ ansible-playbook -i inventory.ini playbook.yml
 
 All provisioning attempts (success or failure) are logged to `provisioning.log` in the ansible directory with timestamps and failure details.
 
+## Integration Tests
+
+The project includes comprehensive integration tests that validate the Ansible playbook's error handling and rollback mechanisms using real VM provisioning.
+
+### Test Coverage
+
+The integration test suite (`tests/test_rollback_integration.sh`) includes 6 tests:
+
+1. **Rescue block executes on package failure** - Verifies rollback when package installation fails
+2. **Rescue cleans dotfiles on git clone failure** - Ensures dotfiles directory is removed when cloning fails
+3. **Always block logs success** - Confirms `provisioning.log` is created with COMPLETED status on success
+4. **Always block logs failure** - Confirms `provisioning.log` is created with FAILED status and error details on failure
+5. **Rescue block is idempotent** - Verifies rescue can run multiple times without errors
+6. **VM usability after rescue** - Ensures VM remains SSH-accessible and functional after rollback
+
+### Running Tests
+
+#### Full Test Suite
+
+Run all 6 integration tests (estimated runtime: 15-30 minutes):
+
+```bash
+cd tests
+./test_rollback_integration.sh
+```
+
+**Requirements**:
+- libvirt/KVM running
+- Terraform and Ansible installed
+- SSH key at `~/.ssh/vm_key`
+- Sufficient disk space for test VMs (6 VMs × 20GB)
+
+**What happens**:
+- Provisions real VMs using Terraform
+- Runs Ansible playbook with injected failures
+- Validates rollback behavior
+- Cleans up test VMs automatically (even on Ctrl+C)
+
+#### Isolated Test Execution
+
+Run individual tests for faster iteration:
+
+```bash
+# Test 2 only (git clone failure rescue)
+./test_rollback_integration_test2_only.sh
+
+# Test 3 only (success logging)
+./test_rollback_integration_test3_only.sh
+
+# Test 4 only (failure logging)
+./test_rollback_integration_test4_only.sh
+
+# Test 5 only (idempotency)
+./test_rollback_integration_test5_only.sh
+
+# Test 6 only (VM usability)
+./test_rollback_integration_test6_only.sh
+```
+
+**Runtime**: 2-5 minutes per isolated test
+
+### Test Patterns
+
+The integration tests use these patterns:
+
+1. **Playbook Mutation** - Temporarily injects failures into `playbook.yml` (e.g., invalid package names, broken git URLs)
+2. **Real VM Provisioning** - Creates actual VMs using Terraform to test against real infrastructure
+3. **Automatic Restoration** - Restores original playbook after each test using bash traps
+4. **Cleanup on Exit** - Destroys test VMs even on interruption (Ctrl+C) or failure
+5. **Output Validation** - Checks Ansible output, log files, and VM state for expected behavior
+
+### Troubleshooting Test Failures
+
+#### Test VMs Not Cleaning Up
+
+**Symptom**: Test VMs remain after test failure
+
+**Solution**:
+```bash
+# List test VMs
+virsh list --all | grep "test-vm-"
+
+# Manually clean up
+sudo virsh destroy test-vm-rescue-pkg-<PID>
+sudo virsh undefine test-vm-rescue-pkg-<PID>
+
+# Clean up storage volumes
+sudo virsh vol-list default | grep "test-vm-"
+sudo virsh vol-delete <volume-name> default
+```
+
+#### Tests Timing Out
+
+**Symptom**: Tests hang waiting for cloud-init or SSH
+
+**Cause**: Network issues or slow VM startup
+
+**Solution**:
+```bash
+# Check VM console
+virsh console test-vm-<name>
+# Exit console: Ctrl+]
+
+# Check cloud-init status in VM
+sudo cloud-init status
+
+# Increase timeout in test (edit test_rollback_integration.sh)
+# Change: wait_for_vm_ready "$vm_ip" 180
+# To:     wait_for_vm_ready "$vm_ip" 300
+```
+
+#### Playbook Not Restored
+
+**Symptom**: `ansible/playbook.yml` contains test mutations after failure
+
+**Cause**: Trap didn't execute or backup file missing
+
+**Solution**:
+```bash
+# Check for backup file
+ls -la /tmp/playbook-backup-*
+
+# Restore manually from git
+git checkout ansible/playbook.yml
+
+# Or restore from backup
+mv /tmp/playbook-backup-<PID> ansible/playbook.yml
+```
+
+#### Insufficient Disk Space
+
+**Symptom**: Terraform fails with volume creation errors
+
+**Cause**: Not enough space for 6 test VMs
+
+**Solution**:
+```bash
+# Check available space
+virsh pool-info default
+
+# Run tests individually instead of full suite
+./test_rollback_integration_test2_only.sh  # Uses 1 VM at a time
+```
+
+### CI/CD Integration
+
+Integration tests are **not** run automatically in CI/CD due to resource requirements (real VMs). Run them manually before major releases or after changes to:
+- Ansible playbook structure
+- Error handling logic
+- Rollback mechanisms
+- Logging functionality
+
 ## Troubleshooting
 
 ### Common Issues
