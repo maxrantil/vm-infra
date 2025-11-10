@@ -44,9 +44,10 @@ if [ -f "$INVENTORY_FRAGMENT" ]; then
     echo -e "${GREEN}✓ Removed inventory fragment: $INVENTORY_FRAGMENT${NC}"
 fi
 
-# Regenerate merged inventory
+# Regenerate merged inventory (atomic write)
 if ls "$SCRIPT_DIR/ansible/inventory.d"/*.ini 1> /dev/null 2>&1; then
-    cat "$SCRIPT_DIR/ansible/inventory.d"/*.ini > "$SCRIPT_DIR/ansible/inventory.ini"
+    cat "$SCRIPT_DIR/ansible/inventory.d"/*.ini > "$SCRIPT_DIR/ansible/inventory.ini.tmp" && \
+    mv "$SCRIPT_DIR/ansible/inventory.ini.tmp" "$SCRIPT_DIR/ansible/inventory.ini"
     echo -e "${GREEN}✓ Regenerated inventory with remaining VMs${NC}"
 else
     echo "[vms]" > "$SCRIPT_DIR/ansible/inventory.ini"

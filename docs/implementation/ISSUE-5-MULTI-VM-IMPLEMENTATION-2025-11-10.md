@@ -15,7 +15,7 @@
 **Key Decision**: **Fragment-Based Inventory Management** (Approach A)
 - Each VM writes its inventory to `ansible/inventory.d/${vm_name}.ini`
 - Fragments merged into `ansible/inventory.ini` after each provision
-- Preserves separate Terraform states per VM (current architecture)
+- Uses shared Terraform state with variable scoping per VM
 - No state migration required (low risk)
 
 **Why This Approach**: Balances simplicity, robustness, and alignment with project philosophy while enabling comprehensive TDD workflow.

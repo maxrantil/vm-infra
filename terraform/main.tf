@@ -178,7 +178,7 @@ resource "null_resource" "merge_inventory" {
   provisioner "local-exec" {
     command = <<-EOT
       mkdir -p ${path.module}/../ansible/inventory.d
-      cat ${path.module}/../ansible/inventory.d/*.ini > ${path.module}/../ansible/inventory.ini 2>/dev/null || echo "[vms]" > ${path.module}/../ansible/inventory.ini
+      cat ${path.module}/../ansible/inventory.d/*.ini > ${path.module}/../ansible/inventory.ini.tmp 2>/dev/null && mv ${path.module}/../ansible/inventory.ini.tmp ${path.module}/../ansible/inventory.ini || echo "[vms]" > ${path.module}/../ansible/inventory.ini
     EOT
   }
 
