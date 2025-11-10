@@ -207,7 +207,7 @@ EOF
         "Empty inventory should have [vms] header"
 
     # Verify no VM entries remain
-    VM_COUNT=$(grep -c "vm_name=" "$TEST_DIR/ansible/inventory.ini" 2>/dev/null || echo "0")
+    VM_COUNT=$(grep -c "vm_name=" "$TEST_DIR/ansible/inventory.ini" 2>/dev/null) || VM_COUNT=0
     assert_equals "0" "$VM_COUNT" \
         "Empty inventory should have 0 VMs"
 
