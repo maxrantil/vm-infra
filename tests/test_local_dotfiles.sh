@@ -1247,9 +1247,9 @@ vm_name = "test-validation-vm"
 dotfiles_local_path = "relative/path/to/dotfiles"
 EOF
 
-    # Run terraform validate with invalid relative path
+    # Run terraform plan with invalid relative path (validate doesn't support -var-file)
     set +e
-    output=$(cd "$terraform_dir" && terraform validate -var-file="$test_tfvars" 2>&1)
+    output=$(cd "$terraform_dir" && terraform plan -var-file="$test_tfvars" -input=false 2>&1)
     local exit_code=$?
     set -e
 
@@ -1284,9 +1284,9 @@ vm_name = "test-validation-vm"
 dotfiles_local_path = "/absolute/path/to/dotfiles"
 EOF
 
-    # Run terraform validate with valid absolute path
+    # Run terraform plan with valid absolute path (validate doesn't support -var-file)
     set +e
-    output=$(cd "$terraform_dir" && terraform validate -var-file="$test_tfvars" 2>&1)
+    output=$(cd "$terraform_dir" && terraform plan -var-file="$test_tfvars" -input=false 2>&1)
     local exit_code=$?
     set -e
 
@@ -1319,9 +1319,9 @@ vm_name = "test-validation-vm"
 dotfiles_local_path = ""
 EOF
 
-    # Run terraform validate with empty path
+    # Run terraform plan with empty path (validate doesn't support -var-file)
     set +e
-    output=$(cd "$terraform_dir" && terraform validate -var-file="$test_tfvars" 2>&1)
+    output=$(cd "$terraform_dir" && terraform plan -var-file="$test_tfvars" -input=false 2>&1)
     local exit_code=$?
     set -e
 
