@@ -1225,6 +1225,132 @@ test_terraform_variable_empty_default() {
     test_result "Terraform variable defaults to empty string (behavior test)" "pass" "$result"
 }
 
+test_terraform_validation_rejects_relative_paths() {
+    # Test: Terraform validation should reject relative paths for dotfiles_local_path
+    # This validates Issue #37: ARCH-003 implementation
+    echo -e "\n${YELLOW}=== TERRAFORM VALIDATION TESTS ===${NC}"
+
+    local result="fail"
+    local terraform_dir="$SCRIPT_DIR/../terraform"
+
+    # Save original directory
+    local original_dir
+    original_dir=$(pwd)
+
+    # Navigate to terraform directory
+    cd "$terraform_dir" || return 1
+
+    # Initialize terraform if needed
+    if [[ ! -d ".terraform" ]]; then
+        terraform init > /dev/null 2>&1
+    fi
+
+    # Create test tfvars file with relative path (should be rejected)
+    local test_tfvars
+    test_tfvars=$(mktemp)
+    cat > "$test_tfvars" << EOF
+vm_name = "test-validation-vm"
+dotfiles_local_path = "relative/path/to/dotfiles"
+EOF
+
+    # Run terraform validate with invalid relative path
+    set +e
+    output=$(terraform validate -var-file="$test_tfvars" 2>&1)
+    local exit_code=$?
+    set -e
+
+    # Cleanup
+    rm -f "$test_tfvars"
+    cd "$original_dir"
+
+    # RED PHASE: Test should FAIL initially (no validation block exists yet)
+    # After adding validation block (GREEN PHASE), this test will PASS
+    # Expected: Terraform should reject relative path with validation error
+    if [ $exit_code -ne 0 ] && echo "$output" | grep -qi "dotfiles_local_path"; then
+        result="pass"
+    fi
+
+    test_result "Terraform validation rejects relative paths (Issue #37)" "pass" "$result"
+}
+
+test_terraform_validation_accepts_absolute_paths() {
+    # Test: Terraform validation should accept absolute paths for dotfiles_local_path
+    local result="fail"
+    local terraform_dir="$SCRIPT_DIR/../terraform"
+    local original_dir
+    original_dir=$(pwd)
+
+    cd "$terraform_dir" || return 1
+
+    if [[ ! -d ".terraform" ]]; then
+        terraform init > /dev/null 2>&1
+    fi
+
+    # Create test tfvars file with absolute path (should be accepted)
+    local test_tfvars
+    test_tfvars=$(mktemp)
+    cat > "$test_tfvars" << EOF
+vm_name = "test-validation-vm"
+dotfiles_local_path = "/absolute/path/to/dotfiles"
+EOF
+
+    # Run terraform validate with valid absolute path
+    set +e
+    output=$(terraform validate -var-file="$test_tfvars" 2>&1)
+    local exit_code=$?
+    set -e
+
+    # Cleanup
+    rm -f "$test_tfvars"
+    cd "$original_dir"
+
+    # Expected: Terraform should accept absolute path
+    if [ $exit_code -eq 0 ]; then
+        result="pass"
+    fi
+
+    test_result "Terraform validation accepts absolute paths (Issue #37)" "pass" "$result"
+}
+
+test_terraform_validation_accepts_empty_path() {
+    # Test: Terraform validation should accept empty string for dotfiles_local_path
+    local result="fail"
+    local terraform_dir="$SCRIPT_DIR/../terraform"
+    local original_dir
+    original_dir=$(pwd)
+
+    cd "$terraform_dir" || return 1
+
+    if [[ ! -d ".terraform" ]]; then
+        terraform init > /dev/null 2>&1
+    fi
+
+    # Create test tfvars file with empty path (should be accepted)
+    local test_tfvars
+    test_tfvars=$(mktemp)
+    cat > "$test_tfvars" << EOF
+vm_name = "test-validation-vm"
+dotfiles_local_path = ""
+EOF
+
+    # Run terraform validate with empty path
+    set +e
+    output=$(terraform validate -var-file="$test_tfvars" 2>&1)
+    local exit_code=$?
+    set -e
+
+    # Cleanup
+    rm -f "$test_tfvars"
+    cd "$original_dir"
+
+    # Expected: Terraform should accept empty string (default behavior)
+    if [ $exit_code -eq 0 ]; then
+        result="pass"
+    fi
+
+    test_result "Terraform validation accepts empty path (Issue #37)" "pass" "$result"
+}
+
 ##############################################################################
 # INTEGRATION TESTS - Ansible Inventory
 ##############################################################################
@@ -1609,6 +1735,9 @@ main() {
     # Integration Tests - Terraform
     test_terraform_variable_passing
     test_terraform_variable_empty_default
+    test_terraform_validation_rejects_relative_paths
+    test_terraform_validation_accepts_absolute_paths
+    test_terraform_validation_accepts_empty_path
 
     # Integration Tests - Ansible Inventory
     test_ansible_inventory_with_local_path
