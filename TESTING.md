@@ -112,6 +112,43 @@ echo "Expected: All tests passing (100% pass rate)"
 # Expected: All E2E tests passing
 ```
 
+## Pre-commit Hooks
+
+The test suite runs automatically on every commit via pre-commit hooks to prevent regressions.
+
+### Setup
+
+```bash
+# Install pre-commit hooks (first time only)
+pre-commit install
+pre-commit install --hook-type commit-msg
+```
+
+### Automated Tests on Commit
+
+When you commit changes, the following tests run automatically:
+- **Local dotfiles test suite** (66 tests) - Validates `--test-dotfiles` feature
+- **Security checks** - Detects secrets, validates file permissions
+- **Code quality** - Shellcheck, yamllint, markdownlint
+- **Terraform validation** - Ensures infrastructure code is valid
+
+### Manual Pre-commit Run
+
+```bash
+# Run all hooks on all files
+pre-commit run --all-files
+
+# Run specific hook
+pre-commit run dotfiles-tests --all-files
+pre-commit run shellcheck --all-files
+```
+
+### Hook Behavior
+
+- **Blocking**: If any test fails, the commit is blocked
+- **No bypass**: `--no-verify` is forbidden per project policy
+- **Fast feedback**: Tests run before commit to catch issues early
+
 ## Contributing Tests
 
 When adding new features, follow strict TDD:
