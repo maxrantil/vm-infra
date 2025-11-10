@@ -1235,6 +1235,12 @@ test_terraform_validation_rejects_relative_paths() {
     # This validates Issue #37: ARCH-003 implementation
     echo -e "\n${YELLOW}=== TERRAFORM VALIDATION TESTS ===${NC}"
 
+    # Skip if terraform not available (e.g., in CI without terraform)
+    if ! command -v terraform &> /dev/null; then
+        echo -e "${YELLOW}⊘ SKIP${NC}: Terraform not available (tests require terraform command)"
+        return 0
+    fi
+
     local result="fail"
     local terraform_dir
     terraform_dir=$(cd "$SCRIPT_DIR/../terraform" && pwd)
@@ -1273,6 +1279,13 @@ EOF
 
 test_terraform_validation_accepts_absolute_paths() {
     # Test: Terraform validation should accept absolute paths for dotfiles_local_path
+
+    # Skip if terraform not available
+    if ! command -v terraform &> /dev/null; then
+        echo -e "${YELLOW}⊘ SKIP${NC}: Terraform not available"
+        return 0
+    fi
+
     local result="fail"
     local terraform_dir
     terraform_dir=$(cd "$SCRIPT_DIR/../terraform" && pwd)
@@ -1308,6 +1321,13 @@ EOF
 
 test_terraform_validation_accepts_empty_path() {
     # Test: Terraform validation should accept empty string for dotfiles_local_path
+
+    # Skip if terraform not available
+    if ! command -v terraform &> /dev/null; then
+        echo -e "${YELLOW}⊘ SKIP${NC}: Terraform not available"
+        return 0
+    fi
+
     local result="fail"
     local terraform_dir
     terraform_dir=$(cd "$SCRIPT_DIR/../terraform" && pwd)
