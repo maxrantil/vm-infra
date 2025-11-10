@@ -1,0 +1,17 @@
+name: Ansible Validation
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'ansible/**'
+      - '.github/workflows/ansible-validation.yml'
+
+jobs:
+  ansible-lint:
+    name: Ansible Linting and Syntax Check
+    uses: maxrantil/.github/.github/workflows/ansible-lint-reusable.yml@main
+    with:
+      working-directory: 'ansible'
+      playbook-path: 'playbook.yml'
+      ansible-lint-version: 'latest'
