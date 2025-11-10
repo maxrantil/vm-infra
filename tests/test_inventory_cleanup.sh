@@ -126,12 +126,12 @@ test_destroy_removes_fragment() {
     setup
 
     # Create two fragments
-    cat > "$TEST_DIR/ansible/inventory.d/vm1.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/vm1.ini" << EOF
 [vms]
 192.168.122.100 ansible_user=mr vm_name=vm1
 EOF
 
-    cat > "$TEST_DIR/ansible/inventory.d/vm2.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/vm2.ini" << EOF
 [vms]
 192.168.122.101 ansible_user=mr vm_name=vm2
 EOF
@@ -155,12 +155,12 @@ test_destroy_regenerates_inventory() {
     setup
 
     # Create two fragments
-    cat > "$TEST_DIR/ansible/inventory.d/vm1.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/vm1.ini" << EOF
 [vms]
 192.168.122.100 ansible_user=mr vm_name=vm1
 EOF
 
-    cat > "$TEST_DIR/ansible/inventory.d/vm2.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/vm2.ini" << EOF
 [vms]
 192.168.122.101 ansible_user=mr vm_name=vm2
 EOF
@@ -190,7 +190,7 @@ test_destroy_last_vm_creates_empty_inventory() {
     setup
 
     # Create single fragment
-    cat > "$TEST_DIR/ansible/inventory.d/vm-only.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/vm-only.ini" << EOF
 [vms]
 192.168.122.100 ansible_user=mr vm_name=vm-only
 EOF
@@ -207,7 +207,7 @@ EOF
         "Empty inventory should have [vms] header"
 
     # Verify no VM entries remain
-    VM_COUNT=$(grep -c "vm_name=" "$TEST_DIR/ansible/inventory.ini" 2>/dev/null) || VM_COUNT=0
+    VM_COUNT=$(grep -c "vm_name=" "$TEST_DIR/ansible/inventory.ini" 2> /dev/null) || VM_COUNT=0
     assert_equals "0" "$VM_COUNT" \
         "Empty inventory should have 0 VMs"
 
@@ -223,7 +223,7 @@ test_destroy_preserves_other_fragments() {
 
     # Create three fragments
     for i in {1..3}; do
-        cat > "$TEST_DIR/ansible/inventory.d/vm${i}.ini" <<EOF
+        cat > "$TEST_DIR/ansible/inventory.d/vm${i}.ini" << EOF
 [vms]
 192.168.122.$((99 + i)) ansible_user=mr vm_name=vm${i}
 EOF

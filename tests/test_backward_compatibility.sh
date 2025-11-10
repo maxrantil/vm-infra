@@ -90,7 +90,7 @@ test_single_vm_creates_inventory() {
 
     # Simulate single VM provision (what provision-vm.sh does)
     # 1. Terraform creates fragment
-    cat > "$TEST_DIR/ansible/inventory.d/single-vm.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/single-vm.ini" << EOF
 # Fragment for single-vm
 [vms]
 192.168.122.100 ansible_user=mr ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3 vm_name=single-vm
@@ -120,7 +120,7 @@ test_inventory_format_unchanged() {
     setup
 
     # Create single VM fragment
-    cat > "$TEST_DIR/ansible/inventory.d/compat-vm.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/compat-vm.ini" << EOF
 # Fragment for compat-vm
 [vms]
 192.168.122.50 ansible_user=mr ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3 vm_name=compat-vm
@@ -158,7 +158,7 @@ test_ansible_playbook_compatibility() {
     setup
 
     # Create realistic inventory
-    cat > "$TEST_DIR/ansible/inventory.d/ansible-test-vm.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/ansible-test-vm.ini" << EOF
 # Fragment for ansible-test-vm
 [vms]
 192.168.122.200 ansible_user=mr ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3 vm_name=ansible-test-vm
@@ -205,13 +205,13 @@ test_single_vm_behavior_unchanged() {
 
     # Simulate old behavior (direct write to inventory.ini)
     OLD_INVENTORY="$TEST_DIR/old-inventory.ini"
-    cat > "$OLD_INVENTORY" <<EOF
+    cat > "$OLD_INVENTORY" << EOF
 [vms]
 192.168.122.100 ansible_user=mr ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3
 EOF
 
     # Simulate new behavior (fragment + merge)
-    cat > "$TEST_DIR/ansible/inventory.d/test-vm.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/test-vm.ini" << EOF
 # Fragment for test-vm
 [vms]
 192.168.122.100 ansible_user=mr ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3 vm_name=test-vm

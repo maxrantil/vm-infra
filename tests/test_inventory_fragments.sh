@@ -137,7 +137,7 @@ test_single_vm_fragment_generation() {
 
     # Create a mock fragment (simulating what Terraform main.tf should create)
     mkdir -p "$TEST_DIR/ansible/inventory.d"
-    cat > "$FRAGMENT_FILE" <<EOF
+    cat > "$FRAGMENT_FILE" << EOF
 # Fragment for ${VM_NAME}
 [vms]
 ${VM_IP} ansible_user=mr ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3 vm_name=${VM_NAME}
@@ -165,7 +165,7 @@ test_fragment_contains_vm_name() {
 
     # Create a mock fragment (simulating what Terraform should create)
     mkdir -p "$TEST_DIR/ansible/inventory.d"
-    cat > "$FRAGMENT_FILE" <<EOF
+    cat > "$FRAGMENT_FILE" << EOF
 # Fragment for ${VM_NAME}
 [vms]
 ${VM_IP} ansible_user=mr ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3 vm_name=${VM_NAME}
@@ -194,7 +194,7 @@ test_empty_inventory_handling() {
     INVENTORY_FILE="$PROJECT_ROOT/ansible/inventory.ini"
 
     # Remove all fragments
-    rm -f "$PROJECT_ROOT/ansible/inventory.d"/*.ini 2>/dev/null
+    rm -f "$PROJECT_ROOT/ansible/inventory.d"/*.ini 2> /dev/null
 
     # Expected: Merge logic should create [vms] header
     # This will fail because no merge logic exists yet
@@ -217,7 +217,7 @@ test_fragment_format_valid_ini() {
 
     # Create fragment
     mkdir -p "$TEST_DIR/ansible/inventory.d"
-    cat > "$FRAGMENT_FILE" <<EOF
+    cat > "$FRAGMENT_FILE" << EOF
 # Fragment for ${VM_NAME}
 [vms]
 ${VM_IP} ansible_user=mr ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3 vm_name=${VM_NAME}
@@ -269,23 +269,23 @@ test_multiple_fragments_exist() {
     # Create multiple mock fragments
     mkdir -p "$TEST_DIR/ansible/inventory.d"
 
-    cat > "$TEST_DIR/ansible/inventory.d/vm1.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/vm1.ini" << EOF
 [vms]
 192.168.122.100 ansible_user=mr vm_name=vm1
 EOF
 
-    cat > "$TEST_DIR/ansible/inventory.d/vm2.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/vm2.ini" << EOF
 [vms]
 192.168.122.101 ansible_user=mr vm_name=vm2
 EOF
 
-    cat > "$TEST_DIR/ansible/inventory.d/vm3.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/vm3.ini" << EOF
 [vms]
 192.168.122.102 ansible_user=mr vm_name=vm3
 EOF
 
     # Count fragments
-    FRAGMENT_COUNT=$(ls "$TEST_DIR/ansible/inventory.d"/*.ini 2>/dev/null | wc -l)
+    FRAGMENT_COUNT=$(ls "$TEST_DIR/ansible/inventory.d"/*.ini 2> /dev/null | wc -l)
 
     assert_equals "3" "$FRAGMENT_COUNT" \
         "Should have 3 fragment files"

@@ -73,7 +73,7 @@ test_merge_two_fragments() {
     setup
 
     # Create two fragments
-    cat > "$TEST_DIR/ansible/inventory.d/vm1.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/vm1.ini" << EOF
 # Fragment for vm1
 [vms]
 192.168.122.100 ansible_user=mr ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3 vm_name=vm1
@@ -81,7 +81,7 @@ test_merge_two_fragments() {
 # End fragment for vm1
 EOF
 
-    cat > "$TEST_DIR/ansible/inventory.d/vm2.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/vm2.ini" << EOF
 # Fragment for vm2
 [vms]
 192.168.122.101 ansible_user=mr ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3 vm_name=vm2
@@ -91,7 +91,7 @@ EOF
 
     # Merge fragments (this is what Terraform should do)
     # Currently FAILING because merge logic doesn't exist
-    cat "$TEST_DIR/ansible/inventory.d"/*.ini > "$TEST_DIR/ansible/inventory.ini" 2>/dev/null || echo "[vms]" > "$TEST_DIR/ansible/inventory.ini"
+    cat "$TEST_DIR/ansible/inventory.d"/*.ini > "$TEST_DIR/ansible/inventory.ini" 2> /dev/null || echo "[vms]" > "$TEST_DIR/ansible/inventory.ini"
 
     # Test that both VMs are in merged inventory
     assert_file_contains "$TEST_DIR/ansible/inventory.ini" "vm_name=vm1" \
@@ -112,7 +112,7 @@ test_merge_three_fragments() {
 
     # Create three fragments
     for i in {1..3}; do
-        cat > "$TEST_DIR/ansible/inventory.d/vm${i}.ini" <<EOF
+        cat > "$TEST_DIR/ansible/inventory.d/vm${i}.ini" << EOF
 # Fragment for vm${i}
 [vms]
 192.168.122.$((99 + i)) ansible_user=mr ansible_ssh_private_key_file=~/.ssh/vm_key vm_name=vm${i}
@@ -141,7 +141,7 @@ test_merge_preserves_all_entries() {
     setup
 
     # Create fragment with full details
-    cat > "$TEST_DIR/ansible/inventory.d/detailed-vm.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/detailed-vm.ini" << EOF
 # Fragment for detailed-vm
 [vms]
 192.168.122.150 ansible_user=mr ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3 vm_name=detailed-vm dotfiles_local_path=/path/to/dotfiles
@@ -177,7 +177,7 @@ test_merge_handles_missing_directory() {
 
     # Attempt merge (should create minimal inventory)
     # This tests the error handling: || echo "[vms]"
-    cat "$TEST_DIR/ansible/inventory.d"/*.ini > "$TEST_DIR/ansible/inventory.ini" 2>/dev/null || echo "[vms]" > "$TEST_DIR/ansible/inventory.ini"
+    cat "$TEST_DIR/ansible/inventory.d"/*.ini > "$TEST_DIR/ansible/inventory.ini" 2> /dev/null || echo "[vms]" > "$TEST_DIR/ansible/inventory.ini"
 
     # Should create inventory with at least [vms] header
     assert_file_contains "$TEST_DIR/ansible/inventory.ini" "[vms]" \
@@ -194,7 +194,7 @@ test_merge_idempotency() {
     setup
 
     # Create fragment
-    cat > "$TEST_DIR/ansible/inventory.d/vm1.ini" <<EOF
+    cat > "$TEST_DIR/ansible/inventory.d/vm1.ini" << EOF
 # Fragment for vm1
 [vms]
 192.168.122.100 ansible_user=mr vm_name=vm1
