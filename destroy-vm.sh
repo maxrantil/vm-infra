@@ -37,5 +37,22 @@ fi
 
 terraform destroy -auto-approve -var="vm_name=$VM_NAME"
 
+# Remove inventory fragment
+INVENTORY_FRAGMENT="$SCRIPT_DIR/ansible/inventory.d/${VM_NAME}.ini"
+if [ -f "$INVENTORY_FRAGMENT" ]; then
+    rm -f "$INVENTORY_FRAGMENT"
+    echo -e "${GREEN}✓ Removed inventory fragment: $INVENTORY_FRAGMENT${NC}"
+fi
+
+# Regenerate merged inventory (atomic write)
+if ls "$SCRIPT_DIR/ansible/inventory.d"/*.ini 1> /dev/null 2>&1; then
+    cat "$SCRIPT_DIR/ansible/inventory.d"/*.ini > "$SCRIPT_DIR/ansible/inventory.ini.tmp" &&
+        mv "$SCRIPT_DIR/ansible/inventory.ini.tmp" "$SCRIPT_DIR/ansible/inventory.ini"
+    echo -e "${GREEN}✓ Regenerated inventory with remaining VMs${NC}"
+else
+    echo "[vms]" > "$SCRIPT_DIR/ansible/inventory.ini"
+    echo -e "${GREEN}✓ No VMs remaining, created empty inventory${NC}"
+fi
+
 echo ""
 echo -e "${GREEN}✓ VM '$VM_NAME' destroyed successfully${NC}"
