@@ -387,6 +387,17 @@ repos:
               exit 1
             fi
 
+      # -------------------------------------------------------------------------
+      # TEST SUITE EXECUTION
+      # -------------------------------------------------------------------------
+      - id: dotfiles-tests
+        name: Local dotfiles feature tests
+        description: Run comprehensive test suite (66 tests) before commit
+        entry: tests/test_local_dotfiles.sh
+        language: script
+        pass_filenames: false
+        stages: [pre-commit]
+
   # =============================================================================
   # ADVANCED SECRET DETECTION (detect-secrets)
   # =============================================================================

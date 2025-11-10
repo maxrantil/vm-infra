@@ -221,14 +221,19 @@ test_flag_parsing_no_flag() {
     echo -e "\n${YELLOW}=== UNIT TESTS: Flag Parsing ===${NC}"
 
     # Test: Default behavior without --test-dotfiles flag
-    # Expected: DOTFILES_LOCAL_PATH should be empty
+    # Expected: Should use default GitHub dotfiles, not local path
     local result="fail"
+    export TEST_MODE=1
 
-    # This would be tested by running provision-vm.sh without flag
-    # and checking that DOTFILES_LOCAL_PATH is not set
-    # For now, we mark this as a placeholder
-    result="pass" # Will fail until implemented
+    # Run script WITHOUT --test-dotfiles flag
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1 || true)
 
+    # Verify behavior: script should show default GitHub dotfiles
+    if echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
+        result="pass"
+    fi
+
+    unset TEST_MODE
     test_result "Default behavior without --test-dotfiles flag" "pass" "$result"
 }
 
