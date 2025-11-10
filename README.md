@@ -186,10 +186,13 @@ ssh -i ~/.ssh/vm_key mr@<VM_IP>
 
 The `--test-dotfiles` flag includes automatic security checks:
 
+- **Terraform Variable Validation**: Enforces absolute paths at infrastructure level (rejects relative paths like `../dotfiles`)
 - **Symlink Detection**: Prevents symlink attacks that could redirect to system directories
 - **Shell Injection Prevention**: Blocks paths with shell metacharacters (`;`, `|`, `` ` ``, `$()`)
 - **install.sh Content Inspection**: Detects dangerous patterns (`rm -rf /`, `curl | bash`, etc.)
 - **Git Repository Validation**: Ensures valid .git directory if present
+
+**Note**: Path validation occurs at multiple layers (Terraform → Bash → Ansible) for defense in depth.
 
 ### Use Cases
 
