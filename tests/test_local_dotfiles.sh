@@ -1231,18 +1231,12 @@ test_terraform_validation_rejects_relative_paths() {
     echo -e "\n${YELLOW}=== TERRAFORM VALIDATION TESTS ===${NC}"
 
     local result="fail"
-    local terraform_dir="$SCRIPT_DIR/../terraform"
+    local terraform_dir
+    terraform_dir=$(cd "$SCRIPT_DIR/../terraform" && pwd)
 
-    # Save original directory
-    local original_dir
-    original_dir=$(pwd)
-
-    # Navigate to terraform directory
-    cd "$terraform_dir" || return 1
-
-    # Initialize terraform if needed
-    if [[ ! -d ".terraform" ]]; then
-        terraform init > /dev/null 2>&1
+    # Initialize terraform if needed (in subshell)
+    if [[ ! -d "$terraform_dir/.terraform" ]]; then
+        (cd "$terraform_dir" && terraform init > /dev/null 2>&1)
     fi
 
     # Create test tfvars file with relative path (should be rejected)
@@ -1255,13 +1249,12 @@ EOF
 
     # Run terraform validate with invalid relative path
     set +e
-    output=$(terraform validate -var-file="$test_tfvars" 2>&1)
+    output=$(cd "$terraform_dir" && terraform validate -var-file="$test_tfvars" 2>&1)
     local exit_code=$?
     set -e
 
     # Cleanup
     rm -f "$test_tfvars"
-    cd "$original_dir"
 
     # RED PHASE: Test should FAIL initially (no validation block exists yet)
     # After adding validation block (GREEN PHASE), this test will PASS
@@ -1276,14 +1269,11 @@ EOF
 test_terraform_validation_accepts_absolute_paths() {
     # Test: Terraform validation should accept absolute paths for dotfiles_local_path
     local result="fail"
-    local terraform_dir="$SCRIPT_DIR/../terraform"
-    local original_dir
-    original_dir=$(pwd)
+    local terraform_dir
+    terraform_dir=$(cd "$SCRIPT_DIR/../terraform" && pwd)
 
-    cd "$terraform_dir" || return 1
-
-    if [[ ! -d ".terraform" ]]; then
-        terraform init > /dev/null 2>&1
+    if [[ ! -d "$terraform_dir/.terraform" ]]; then
+        (cd "$terraform_dir" && terraform init > /dev/null 2>&1)
     fi
 
     # Create test tfvars file with absolute path (should be accepted)
@@ -1296,13 +1286,12 @@ EOF
 
     # Run terraform validate with valid absolute path
     set +e
-    output=$(terraform validate -var-file="$test_tfvars" 2>&1)
+    output=$(cd "$terraform_dir" && terraform validate -var-file="$test_tfvars" 2>&1)
     local exit_code=$?
     set -e
 
     # Cleanup
     rm -f "$test_tfvars"
-    cd "$original_dir"
 
     # Expected: Terraform should accept absolute path
     if [ $exit_code -eq 0 ]; then
@@ -1315,14 +1304,11 @@ EOF
 test_terraform_validation_accepts_empty_path() {
     # Test: Terraform validation should accept empty string for dotfiles_local_path
     local result="fail"
-    local terraform_dir="$SCRIPT_DIR/../terraform"
-    local original_dir
-    original_dir=$(pwd)
+    local terraform_dir
+    terraform_dir=$(cd "$SCRIPT_DIR/../terraform" && pwd)
 
-    cd "$terraform_dir" || return 1
-
-    if [[ ! -d ".terraform" ]]; then
-        terraform init > /dev/null 2>&1
+    if [[ ! -d "$terraform_dir/.terraform" ]]; then
+        (cd "$terraform_dir" && terraform init > /dev/null 2>&1)
     fi
 
     # Create test tfvars file with empty path (should be accepted)
@@ -1335,13 +1321,12 @@ EOF
 
     # Run terraform validate with empty path
     set +e
-    output=$(terraform validate -var-file="$test_tfvars" 2>&1)
+    output=$(cd "$terraform_dir" && terraform validate -var-file="$test_tfvars" 2>&1)
     local exit_code=$?
     set -e
 
     # Cleanup
     rm -f "$test_tfvars"
-    cd "$original_dir"
 
     # Expected: Terraform should accept empty string (default behavior)
     if [ $exit_code -eq 0 ]; then
