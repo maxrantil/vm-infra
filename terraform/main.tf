@@ -162,12 +162,29 @@ output "vm_ip" {
   value = length(libvirt_domain.vm.network_interface[0].addresses) > 0 ? libvirt_domain.vm.network_interface[0].addresses[0] : "pending"
 }
 
-# Generate Ansible inventory file
+# Generate Ansible inventory fragment for this VM
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/inventory.tpl", {
     vm_ip               = length(libvirt_domain.vm.network_interface[0].addresses) > 0 ? libvirt_domain.vm.network_interface[0].addresses[0] : ""
     vm_user             = "mr"
+    vm_name             = var.vm_name
     dotfiles_local_path = var.dotfiles_local_path
   })
-  filename = "${path.module}/../ansible/inventory.ini"
+  filename = "${path.module}/../ansible/inventory.d/${var.vm_name}.ini"
+}
+
+# Merge all VM fragments into main inventory
+resource "null_resource" "merge_inventory" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      mkdir -p ${path.module}/../ansible/inventory.d
+      cat ${path.module}/../ansible/inventory.d/*.ini > ${path.module}/../ansible/inventory.ini 2>/dev/null || echo "[vms]" > ${path.module}/../ansible/inventory.ini
+    EOT
+  }
+
+  depends_on = [local_file.ansible_inventory]
+
+  triggers = {
+    inventory_fragment = local_file.ansible_inventory.content
+  }
 }

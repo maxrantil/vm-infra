@@ -55,3 +55,4 @@ docs/implementation/
 
 # Ansible auto-generated files
 ansible/inventory.ini
+ansible/inventory.d/*.ini
