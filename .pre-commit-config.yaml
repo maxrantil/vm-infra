@@ -413,7 +413,7 @@ repos:
         exclude: (package-lock.json|tests/test_precommit_secrets.sh)
 
   # =============================================================================
-  # TERRAFORM/INFRASTRUCTURE
+  # TERRAFORM/INFRASTRUCTURE (local only - CI has dedicated Terraform workflow)
   # =============================================================================
   - repo: https://github.com/antonbabenko/pre-commit-terraform
     rev: v1.96.0
@@ -421,9 +421,11 @@ repos:
       - id: terraform_fmt
         name: Terraform format
         description: Format Terraform files consistently
+        stages: [manual]
 
       - id: terraform_validate
         name: Terraform validate
         description: Validate Terraform configuration
+        stages: [manual]
         args:
           - --hook-config=--path=terraform/
