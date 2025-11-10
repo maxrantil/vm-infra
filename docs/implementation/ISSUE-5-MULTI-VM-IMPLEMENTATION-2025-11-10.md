@@ -1,0 +1,680 @@
+# Issue #5: Multi-VM Inventory Support - Implementation Plan
+
+**Date**: 2025-11-10
+**Issue**: [#5](https://github.com/maxrantil/vm-infra/issues/5) - Support multi-VM inventory in Terraform template
+**Branch**: `feat/issue-5-multi-vm-inventory`
+**Status**: 📋 Planning Complete → Ready for Implementation
+**Estimated Time**: 2-3 hours (revised from 45 minutes)
+
+---
+
+## Executive Summary
+
+**Objective**: Enable multiple VMs to coexist in the same Ansible inventory while maintaining current "one-command per VM" provisioning workflow.
+
+**Key Decision**: **Fragment-Based Inventory Management** (Approach A)
+- Each VM writes its inventory to `ansible/inventory.d/${vm_name}.ini`
+- Fragments merged into `ansible/inventory.ini` after each provision
+- Preserves separate Terraform states per VM (current architecture)
+- No state migration required (low risk)
+
+**Why This Approach**: Balances simplicity, robustness, and alignment with project philosophy while enabling comprehensive TDD workflow.
+
+---
+
+## Problem Analysis
+
+### Current Architecture (Single VM)
+
+**Workflow**:
+```
+User → provision-vm.sh → Terraform (creates VM) → Generates inventory.ini → Ansible provisions
+```
+
+**Key Files**:
+- `terraform/main.tf`: Creates single libvirt_domain.vm resource
+- `terraform/inventory.tpl`: Template with single VM variables
+- `ansible/inventory.ini`: **Overwritten on each Terraform apply**
+
+**State Management**: One `terraform.tfstate` per VM (separate states)
+
+### The Problem
+
+**Issue Description States**:
+> Update `inventory.tpl` to handle multiple VMs with a `for` loop
+
+**What Issue Description Misses**:
+1. ❌ **Inventory Overwrites**: Each `terraform apply` overwrites `inventory.ini`
+2. ❌ **Destroy Workflow**: No mechanism to remove individual VM entries
+3. ❌ **Race Conditions**: Concurrent provisions would corrupt inventory
+4. ❌ **State Management**: How does Terraform know about "other VMs"? (It doesn't)
+
+**Reality**: This is not a "45-minute template change." It requires **inventory accumulation strategy**.
+
+---
+
+## Approach Comparison
+
+### Three Approaches Evaluated
+
+| Criterion | **A: Fragment-Based** | **B: Single State for_each** | **C: Issue Description** |
+|-----------|----------------------|------------------------------|--------------------------|
+| **Complexity** | 🟡 Medium | 🔴 High | 🟢 Low |
+| **Code Changes** | ~150 lines | ~300 lines | ~20 lines |
+| **Robustness** | 🟢 High | 🟡 Medium | 🔴 Low |
+| **Alignment with Philosophy** | 🟢 Perfect | 🟡 Changes workflow | 🔴 Breaks workflow |
+| **Testing (TDD)** | 🟢 Easy | 🟡 Complex | 🔴 Unreliable |
+| **Long-term Debt** | 🟢 Low (~100 lines) | 🟢 Low (best practice) | 🔴 High (broken) |
+| **Agent Consensus** | ✅ Unanimous approval | ⚠️ High risk warnings | ❌ Rejected |
+| **Implementation Time** | 2-3 hours | 4-6 hours | N/A (broken) |
+| **Risk Level** | 🟢 Low | 🟠 High | 🔴 Critical |
+
+### Agent Validation Summary
+
+**Architecture-Designer Agent**:
+- Approach A: ✅ "Viable for 2-20 VMs with proper validation"
+- Approach B: ✅ "Industry best practice, for_each recommended"
+- Approach C: ❌ "No state migration plan, critical risks"
+
+**DevOps-Deployment Agent**:
+- Approach A: ✅ **"RECOMMENDED - Separate states, isolated blast radius"**
+- Approach B: ⚠️ "High risk state migration, complex workflow change"
+- Approach C: ❌ "Critical risk: Inventory corruption, race conditions"
+
+**Test-Automation-QA Agent**:
+- Approach A: ✅ "Comprehensive test strategy, TDD-friendly"
+- Approach B: ⚠️ "E2E tests expensive, state mocking complex"
+- Approach C: ❌ "Cannot reliably test race conditions"
+
+### Decision: Approach A (Fragment-Based Inventory)
+
+**Rationale**:
+1. **Preserves "one-command per VM" philosophy** (CLAUDE.md alignment)
+2. **Low risk** (no Terraform state changes)
+3. **Isolated failures** (one VM failure doesn't affect others)
+4. **TDD-friendly** (can test fragment logic in isolation)
+5. **Unanimous agent approval** (all 3 agents recommended)
+6. **Refactorable** (can migrate to Approach B later if needed)
+
+**Why Not Approach B?**
+- Would be "architecturally proper" long-term
+- BUT: Violates "one-command per VM" workflow, requires high-risk state migration
+- Reserve for future if requirements change (e.g., atomic multi-VM operations needed)
+
+**Why Not Approach C?**
+- Fundamentally broken (doesn't solve overwrites)
+- Race conditions, untestable, creates technical debt
+- Would fail agent review and code quality standards
+
+---
+
+## Implementation Design: Fragment-Based Inventory
+
+### Architecture Overview
+
+```
+provision-vm.sh (VM1) → Terraform → Creates inventory.d/vm1.ini ┐
+provision-vm.sh (VM2) → Terraform → Creates inventory.d/vm2.ini ├→ Merged → inventory.ini
+provision-vm.sh (VM3) → Terraform → Creates inventory.d/vm3.ini ┘
+```
+
+### Directory Structure
+
+```
+ansible/
+├── inventory.d/           # NEW: Per-VM inventory fragments
+│   ├── vm1.ini            # Generated by Terraform for vm1
+│   ├── vm2.ini            # Generated by Terraform for vm2
+│   └── vm3.ini            # Generated by Terraform for vm3
+├── inventory.ini          # Merged from inventory.d/*.ini
+└── playbook.yml           # Unchanged
+```
+
+### Core Changes
+
+#### 1. Terraform Configuration (`terraform/main.tf`)
+
+**Current** (lines 166-173):
+```hcl
+resource "local_file" "ansible_inventory" {
+  content = templatefile("${path.module}/inventory.tpl", {
+    vm_ip               = length(libvirt_domain.vm.network_interface[0].addresses) > 0 ? libvirt_domain.vm.network_interface[0].addresses[0] : ""
+    vm_user             = "mr"
+    dotfiles_local_path = var.dotfiles_local_path
+  })
+  filename = "${path.module}/../ansible/inventory.ini"  # ← OVERWRITES
+}
+```
+
+**Proposed**:
+```hcl
+resource "local_file" "ansible_inventory" {
+  content = templatefile("${path.module}/inventory.tpl", {
+    vm_ip               = length(libvirt_domain.vm.network_interface[0].addresses) > 0 ? libvirt_domain.vm.network_interface[0].addresses[0] : ""
+    vm_user             = "mr"
+    vm_name             = var.vm_name  # NEW: Pass VM name to template
+    dotfiles_local_path = var.dotfiles_local_path
+  })
+  filename = "${path.module}/../ansible/inventory.d/${var.vm_name}.ini"  # CHANGED: Fragment per VM
+}
+
+# NEW: Merge fragments into main inventory
+resource "null_resource" "merge_inventory" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      mkdir -p ${path.module}/../ansible/inventory.d
+      cat ${path.module}/../ansible/inventory.d/*.ini > ${path.module}/../ansible/inventory.ini 2>/dev/null || echo "[vms]" > ${path.module}/../ansible/inventory.ini
+    EOT
+  }
+
+  depends_on = [local_file.ansible_inventory]
+
+  triggers = {
+    inventory_fragment = local_file.ansible_inventory.content
+  }
+}
+```
+
+#### 2. Inventory Template (`terraform/inventory.tpl`)
+
+**Current** (7 lines):
+```ini
+[vms]
+%{ if vm_ip != "" ~}
+${vm_ip} ansible_user=${vm_user} ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3%{ if dotfiles_local_path != "" } dotfiles_local_path="${dotfiles_local_path}"%{ endif }
+%{ endif ~}
+```
+
+**Proposed** (9 lines):
+```ini
+# Fragment for ${vm_name}
+[vms]
+%{ if vm_ip != "" ~}
+${vm_ip} ansible_user=${vm_user} ansible_ssh_private_key_file=~/.ssh/vm_key ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_python_interpreter=/usr/bin/python3 vm_name=${vm_name}%{ if dotfiles_local_path != "" } dotfiles_local_path="${dotfiles_local_path}"%{ endif }
+%{ endif ~}
+
+# End fragment for ${vm_name}
+```
+
+**Key Changes**:
+- Add `vm_name` variable (for identification)
+- Add comment headers (for debugging)
+- Add `vm_name=${vm_name}` to Ansible vars (for playbook filtering)
+
+#### 3. Destroy Script (`destroy-vm.sh`)
+
+**Current** (42 lines):
+```bash
+#!/bin/bash
+VM_NAME="${1:-dev-vm}"
+terraform -chdir=terraform destroy -auto-approve -var="vm_name=$VM_NAME"
+```
+
+**Proposed** (add after terraform destroy):
+```bash
+#!/bin/bash
+VM_NAME="${1:-dev-vm}"
+
+# Destroy Terraform resources
+terraform -chdir=terraform destroy -auto-approve -var="vm_name=$VM_NAME"
+
+# NEW: Remove inventory fragment
+INVENTORY_FRAGMENT="ansible/inventory.d/${VM_NAME}.ini"
+if [ -f "$INVENTORY_FRAGMENT" ]; then
+    rm -f "$INVENTORY_FRAGMENT"
+    echo "Removed inventory fragment: $INVENTORY_FRAGMENT"
+fi
+
+# NEW: Regenerate merged inventory
+if ls ansible/inventory.d/*.ini 1> /dev/null 2>&1; then
+    cat ansible/inventory.d/*.ini > ansible/inventory.ini
+    echo "Regenerated inventory with remaining VMs"
+else
+    echo "[vms]" > ansible/inventory.ini
+    echo "No VMs remaining, created empty inventory"
+fi
+```
+
+#### 4. `.gitignore` Update
+
+**Add**:
+```
+# VM-specific inventory fragments (generated by Terraform)
+ansible/inventory.d/*.ini
+```
+
+**Rationale**: Fragments are generated, should not be committed
+
+---
+
+## TDD Implementation Plan
+
+### Commit Structure (10 Commits)
+
+#### RED Phase: Write Failing Tests (Commits 1-4)
+
+**Commit 1: Unit tests for inventory fragment logic**
+```bash
+tests/test_inventory_fragments.sh
+- test_fragment_directory_creation (FAIL)
+- test_single_vm_fragment_generation (FAIL)
+- test_fragment_contains_vm_name (FAIL)
+- test_empty_inventory_handling (FAIL)
+- test_fragment_format_valid_ini (FAIL)
+```
+
+**Commit 2: Integration tests for merge logic**
+```bash
+tests/test_inventory_merge.sh
+- test_merge_two_fragments (FAIL)
+- test_merge_three_fragments (FAIL)
+- test_merge_preserves_all_entries (FAIL)
+- test_merge_handles_missing_directory (FAIL)
+- test_merge_idempotency (FAIL)
+```
+
+**Commit 3: Tests for destroy cleanup**
+```bash
+tests/test_inventory_cleanup.sh
+- test_destroy_removes_fragment (FAIL)
+- test_destroy_regenerates_inventory (FAIL)
+- test_destroy_last_vm_creates_empty_inventory (FAIL)
+- test_destroy_preserves_other_fragments (FAIL)
+```
+
+**Commit 4: Backward compatibility tests**
+```bash
+tests/test_backward_compatibility.sh
+- test_single_vm_workflow_unchanged (FAIL)
+- test_inventory_ini_still_generated (FAIL)
+- test_ansible_playbook_still_works (FAIL)
+```
+
+**Total**: 19 tests, all FAILING ✅
+
+#### GREEN Phase: Minimal Implementation (Commits 5-7)
+
+**Commit 5: Implement fragment generation in Terraform**
+```
+Files changed:
+- terraform/main.tf (update local_file resource, add merge resource)
+- terraform/inventory.tpl (add vm_name variable)
+
+Tests passing: 8/19
+```
+
+**Commit 6: Implement destroy cleanup in destroy-vm.sh**
+```
+Files changed:
+- destroy-vm.sh (add fragment removal, inventory regeneration)
+
+Tests passing: 14/19
+```
+
+**Commit 7: Create inventory.d directory and gitignore**
+```
+Files changed:
+- ansible/inventory.d/.gitkeep (create directory)
+- .gitignore (add inventory.d/*.ini)
+
+Tests passing: 19/19 ✅
+```
+
+#### REFACTOR Phase: Optimize & Document (Commits 8-10)
+
+**Commit 8: Add inventory validation**
+```
+Files changed:
+- provision-vm.sh (add ansible-inventory --list validation)
+
+Tests passing: 19/19 (no regressions)
+```
+
+**Commit 9: Improve merge performance and error handling**
+```
+Files changed:
+- terraform/main.tf (better error messages in merge script)
+
+Tests passing: 19/19 (no regressions)
+```
+
+**Commit 10: Update documentation**
+```
+Files changed:
+- README.md (add multi-VM examples)
+- docs/implementation/ISSUE-5-MULTI-VM-IMPLEMENTATION-2025-11-10.md (this file)
+
+Tests passing: 19/19 (no regressions)
+```
+
+---
+
+## Test Strategy
+
+### Test Pyramid
+
+**Unit Tests** (8 tests, ~5 seconds):
+- Fragment generation correctness
+- Template syntax validation
+- Merge logic with mock files
+- Error handling
+
+**Integration Tests** (8 tests, ~30 seconds):
+- Terraform fragment creation
+- Destroy cleanup workflow
+- Inventory regeneration
+- Validation with ansible-inventory
+
+**E2E Tests** (3 tests, ~8 minutes, optional):
+- Provision 2 VMs sequentially
+- Verify both in inventory
+- Destroy one VM, verify other remains
+- Run Ansible playbook against multi-VM inventory
+
+**Total**: 19 tests, ~35 seconds (unit + integration), +8 minutes (E2E)
+
+### CI Strategy
+
+**Every PR**:
+- ✅ Unit tests (fast, no VMs)
+- ✅ Integration tests (mock Terraform)
+- ⏭️ Skip E2E (too slow)
+
+**On master branch**:
+- ✅ All tests including E2E
+
+### Test Coverage Targets
+
+- Fragment generation: 100%
+- Merge logic: 100%
+- Destroy cleanup: 100%
+- Backward compatibility: 100%
+- **Overall**: ≥95% for new code
+
+---
+
+## Risk Analysis & Mitigation
+
+### Identified Risks
+
+| Risk | Probability | Impact | Severity | Mitigation |
+|------|------------|--------|----------|------------|
+| **Concurrent provision race** | Medium | High | 🟠 High | Fragment-per-VM prevents overwrites |
+| **Orphaned fragments** | High | Low | 🟡 Medium | Enhanced destroy-vm.sh cleanup |
+| **Merge failures** | Low | Medium | 🟡 Medium | Error handling in merge script |
+| **Backward compat break** | Low | High | 🟠 High | Explicit backward compat tests |
+| **Inventory corruption** | Low | High | 🟠 High | Validation after every merge |
+
+### Mitigation Strategies
+
+**1. Concurrent Provision Race Conditions**
+
+**Risk**: Two `provision-vm.sh` run simultaneously, corrupt merged inventory
+
+**Mitigation**: Fragment-based approach inherently safe
+- Each VM writes to different file (`vm1.ini`, `vm2.ini`)
+- Merge operation reads all fragments (idempotent)
+- Even if merge runs concurrently, cat is atomic
+
+**Additional safety** (optional, Phase 2):
+```bash
+# provision-vm.sh: Add file locking
+exec 200>/tmp/vm-infra-merge.lock
+flock -n 200 || { echo "Merge in progress, waiting..."; flock 200; }
+# ... merge logic ...
+```
+
+**2. Orphaned Inventory Fragments**
+
+**Risk**: Manual `terraform destroy` (bypassing destroy-vm.sh) leaves stale fragments
+
+**Mitigation**:
+- Document `destroy-vm.sh` as mandatory cleanup method
+- Add validation in provision-vm.sh:
+  ```bash
+  # Check for orphaned fragments (VMs that don't exist in libvirt)
+  for fragment in ansible/inventory.d/*.ini; do
+      vm_name=$(basename "$fragment" .ini)
+      if ! virsh list --all | grep -q "$vm_name"; then
+          echo "WARNING: Orphaned fragment detected: $fragment"
+          echo "Run: rm $fragment && cat ansible/inventory.d/*.ini > ansible/inventory.ini"
+      fi
+  done
+  ```
+
+**3. Merge Failures**
+
+**Risk**: Merge script fails, inventory.ini left incomplete
+
+**Mitigation**:
+- Test merge script thoroughly in unit tests
+- Add error handling:
+  ```bash
+  if ! cat ansible/inventory.d/*.ini > ansible/inventory.ini; then
+      echo "ERROR: Inventory merge failed"
+      exit 1
+  fi
+  ```
+- Validate after merge:
+  ```bash
+  ansible-inventory -i ansible/inventory.ini --list > /dev/null || {
+      echo "ERROR: Generated inventory is invalid"
+      exit 1
+  }
+  ```
+
+**4. Backward Compatibility Break**
+
+**Risk**: Single-VM workflow stops working
+
+**Mitigation**:
+- Explicit backward compatibility test suite (3 tests)
+- Fragment approach is additive (doesn't change single-VM logic)
+- Test in CI on every commit
+
+**5. Inventory Corruption**
+
+**Risk**: Invalid inventory.ini breaks Ansible
+
+**Mitigation**:
+- Validate with `ansible-inventory --list` after every merge
+- Template syntax tested in unit tests
+- Integration tests verify Ansible can parse inventory
+
+---
+
+## Backward Compatibility Guarantee
+
+### Single-VM Workflow (Unchanged)
+
+**Before**:
+```bash
+./provision-vm.sh dev-vm 4096 2
+# Creates: ansible/inventory.ini with single VM
+```
+
+**After**:
+```bash
+./provision-vm.sh dev-vm 4096 2
+# Creates:
+#   - ansible/inventory.d/dev-vm.ini (fragment)
+#   - ansible/inventory.ini (merged, contains single VM)
+# Result: IDENTICAL to before
+```
+
+### Multi-VM Workflow (New)
+
+**Provision multiple VMs**:
+```bash
+./provision-vm.sh web-vm 4096 2
+./provision-vm.sh db-vm 8192 4
+./provision-vm.sh cache-vm 2048 1
+
+# inventory.ini now contains all 3 VMs
+ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
+```
+
+**Destroy one VM**:
+```bash
+./destroy-vm.sh web-vm
+
+# inventory.ini now contains only db-vm and cache-vm
+# web-vm.ini fragment removed
+```
+
+### Test Coverage
+
+Backward compatibility explicitly tested:
+1. ✅ Single VM provision creates inventory.ini
+2. ✅ inventory.ini format unchanged
+3. ✅ Ansible playbook works identically
+4. ✅ destroy-vm.sh works identically for single VM
+
+---
+
+## Success Metrics
+
+### Functional Requirements
+
+- ✅ Multiple VMs coexist in same inventory
+- ✅ Independent VM lifecycle (create/destroy without affecting others)
+- ✅ No inventory corruption during concurrent operations
+- ✅ 100% backward compatible with single-VM workflow
+
+### Performance Targets
+
+- ⏱️ Provisioning 3 VMs sequentially: ≤ 15 minutes (5 min each)
+- ⏱️ Destroying VM + inventory cleanup: ≤ 30 seconds
+- 🔒 Zero orphaned inventory entries after destroy (with destroy-vm.sh)
+
+### Quality Metrics
+
+- 📊 Test coverage: ≥95% for new code
+- 🐛 Zero regressions in existing single-VM tests (69 tests)
+- 📖 Documentation: Multi-VM examples in README
+- ✅ All 3 agents approve final implementation
+
+---
+
+## Implementation Checklist
+
+### Pre-Implementation ✅
+
+- [x] Agent analysis complete (architecture, devops, test-automation)
+- [x] Approach comparison documented
+- [x] Decision rationale recorded
+- [x] Test strategy defined
+- [x] Risk mitigation planned
+- [x] This implementation document created
+
+### RED Phase (Next Steps)
+
+- [ ] Create `tests/test_inventory_fragments.sh` (8 tests FAILING)
+- [ ] Create `tests/test_inventory_merge.sh` (5 tests FAILING)
+- [ ] Create `tests/test_inventory_cleanup.sh` (4 tests FAILING)
+- [ ] Create `tests/test_backward_compatibility.sh` (3 tests FAILING)
+- [ ] Commit 1: Unit tests
+- [ ] Commit 2: Integration tests
+- [ ] Commit 3: Cleanup tests
+- [ ] Commit 4: Backward compat tests
+- [ ] Verify all 19 tests FAILING ✅
+
+### GREEN Phase
+
+- [ ] Create `ansible/inventory.d/.gitkeep`
+- [ ] Update `terraform/main.tf` (fragment generation + merge)
+- [ ] Update `terraform/inventory.tpl` (add vm_name variable)
+- [ ] Update `destroy-vm.sh` (fragment cleanup)
+- [ ] Update `.gitignore` (ignore inventory.d/*.ini)
+- [ ] Commit 5: Fragment generation (8/19 tests passing)
+- [ ] Commit 6: Destroy cleanup (14/19 tests passing)
+- [ ] Commit 7: Directory + gitignore (19/19 tests passing ✅)
+
+### REFACTOR Phase
+
+- [ ] Add inventory validation to provision-vm.sh
+- [ ] Improve error handling in merge script
+- [ ] Add orphaned fragment detection (optional)
+- [ ] Update README.md with multi-VM examples
+- [ ] Commit 8: Validation
+- [ ] Commit 9: Error handling
+- [ ] Commit 10: Documentation
+
+### Post-Implementation
+
+- [ ] Run full test suite (69 existing + 19 new = 88 tests)
+- [ ] Create draft PR
+- [ ] Request agent validation (architecture, devops, test-automation)
+- [ ] Address agent feedback
+- [ ] Mark PR ready for review
+- [ ] Session handoff documentation
+
+---
+
+## Future Enhancements (Out of Scope)
+
+**Not included in Issue #5**:
+
+1. **File Locking for Concurrent Provisions** (Phase 2)
+   - Add flock to provision-vm.sh
+   - Prevents merge races (low priority, fragments already safe)
+
+2. **Orphaned Fragment Detection** (Phase 2)
+   - Validate fragments against libvirt VMs
+   - Warn about stale entries
+
+3. **Dynamic Inventory Script** (Phase 3)
+   - Replace static inventory.ini with Python script
+   - Query Terraform state directly
+   - Needed only for 20+ VMs (performance)
+
+4. **Single Terraform State with for_each** (Phase 4)
+   - "Architecturally proper" approach
+   - Requires workflow changes (not "one-command per VM")
+   - Consider if requirements change (atomic multi-VM operations needed)
+
+---
+
+## References
+
+### Agent Analysis Documents
+
+- **Architecture Analysis**: Stored in Task agent output (2025-11-10)
+- **DevOps Analysis**: Stored in Task agent output (2025-11-10)
+- **Test Strategy**: `docs/implementation/TEST-STRATEGY-ISSUE-5-MULTI-VM-2025-11-10.md`
+
+### Related Issues
+
+- **Issue #5**: Multi-VM inventory support (this implementation)
+- **Issue #19**: `--test-dotfiles` flag implementation (template pattern reference)
+
+### Key Files
+
+- `terraform/main.tf` (lines 166-173): Inventory generation
+- `terraform/inventory.tpl` (7 lines): Template structure
+- `provision-vm.sh` (657 lines): Main provisioning script
+- `destroy-vm.sh` (42 lines): VM cleanup script
+- `ansible/inventory.ini`: Generated inventory (single file currently)
+
+---
+
+## Approval & Sign-off
+
+**Approach Decision**: Fragment-Based Inventory Management (Approach A)
+
+**Approved By**: Doctor Hubert (2025-11-10)
+
+**Agent Consensus**:
+- ✅ Architecture-Designer: "Viable for 2-20 VMs with proper validation"
+- ✅ DevOps-Deployment: "Recommended - separate states, isolated blast radius"
+- ✅ Test-Automation-QA: "Comprehensive test strategy, TDD-friendly"
+
+**Risk Level**: 🟢 Low (no state changes, additive only, comprehensive tests)
+
+**Ready to Proceed**: ✅ YES - Begin RED phase (write failing tests)
+
+---
+
+**Document Version**: 1.0
+**Last Updated**: 2025-11-10
+**Next Review**: After GREEN phase completion (all tests passing)
