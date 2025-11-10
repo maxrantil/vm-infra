@@ -53,6 +53,11 @@ variable "dotfiles_local_path" {
   description = "Local path to dotfiles for testing (optional)"
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.dotfiles_local_path == "" || can(regex("^/", var.dotfiles_local_path))
+    error_message = "dotfiles_local_path must be empty or an absolute path (starting with /)"
+  }
 }
 
 # VM disk (based on external permanent base image)
