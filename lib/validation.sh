@@ -292,6 +292,17 @@ validate_install_sh() {
 
     # CVE-2: install.sh content inspection (CVSS 9.0)
     # SEC-002: Expanded patterns to prevent evasion (CVSS 7.5)
+    # Issue #103: Pragma-based allowlist for documentation/help text
+    #
+    # Pragma Format: # pragma: allowlist PATTERN-ID
+    # Example: echo "Install: curl url | sh"  # pragma: allowlist RCE-001
+    #
+    # Use Cases:
+    # - Documentation showing dangerous commands (without executing them)
+    # - Help text explaining security risks
+    # - Installation instructions in comments
+    #
+    # Security: Each pragma is logged for audit trail
     local dangerous_patterns=(
         # === DESTRUCTIVE COMMANDS ===
         "rm.*-rf.*/"
