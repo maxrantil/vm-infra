@@ -292,6 +292,17 @@ validate_install_sh() {
 
     # CVE-2: install.sh content inspection (CVSS 9.0)
     # SEC-002: Expanded patterns to prevent evasion (CVSS 7.5)
+    # Issue #103: Pragma-based allowlist for documentation/help text
+    #
+    # Pragma Format: # pragma: allowlist PATTERN-ID
+    # Example: echo "Install: curl url | sh"  # pragma: allowlist RCE-001
+    #
+    # Use Cases:
+    # - Documentation showing dangerous commands (without executing them)
+    # - Help text explaining security risks
+    # - Installation instructions in comments
+    #
+    # Security: Each pragma is logged for audit trail
     local dangerous_patterns=(
         # === DESTRUCTIVE COMMANDS ===
         "rm.*-rf.*/"
@@ -320,7 +331,10 @@ validate_install_sh() {
         "base64.*-d.*\|"
         "xxd"
         "\\\${IFS}"
-        "\\\$[A-Z_]+.*\\\$[A-Z_]+"
+        # Issue #103: Removed overly-broad \$[A-Z_]+.*\$[A-Z_]+ pattern
+        # Reason: Catches legitimate shell code (for loops, path construction)
+        # Security: Direct RCE still caught by curl.*\|.*(bash|sh), eval, exec patterns
+        # Note: Variable-based command construction with pipes already caught by existing patterns
 
         # === NETWORK ACCESS ===
         "nc "
@@ -341,13 +355,23 @@ validate_install_sh() {
     )
 
     for pattern in "${dangerous_patterns[@]}"; do
-        if matched_line=$(grep -m 1 -E "$pattern" "$install_script" 2> /dev/null); then
+        while IFS= read -r matched_line; do
+            # Issue #103: Check for pragma allowlist comment
+            # Format: # pragma: allowlist PATTERN-ID
+            # Allows documentation/help text containing dangerous patterns
+            if echo "$matched_line" | grep -qE '#[[:space:]]*pragma:[[:space:]]*allowlist[[:space:]]+[A-Za-z0-9_-]+'; then
+                local pragma_id
+                pragma_id=$(echo "$matched_line" | grep -oE '#[[:space:]]*pragma:[[:space:]]*allowlist[[:space:]]+[A-Za-z0-9_-]+' | awk '{print $NF}')
+                echo -e "${YELLOW}[INFO] Pattern allowed by pragma: $pragma_id${NC}" >&2
+                continue # Skip this match, pragma explicitly allows it
+            fi
+
             echo -e "${RED}[ERROR] Dangerous pattern detected in install.sh${NC}" >&2
             echo "Pattern: $pattern" >&2
             echo "Matched line: ${matched_line:0:100}" >&2
             echo "For security, cannot proceed with potentially malicious install script." >&2
             exit 1
-        fi
+        done < <(grep -E "$pattern" "$install_script" 2> /dev/null || true)
     done
 
     # SEC-006: Whitelist validation (CVSS 5.0)
