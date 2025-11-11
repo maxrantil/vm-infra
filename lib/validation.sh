@@ -363,7 +363,7 @@ validate_install_sh() {
                 local pragma_id
                 pragma_id=$(echo "$matched_line" | grep -oE '#[[:space:]]*pragma:[[:space:]]*allowlist[[:space:]]+[A-Za-z0-9_-]+' | awk '{print $NF}')
                 echo -e "${YELLOW}[INFO] Pattern allowed by pragma: $pragma_id${NC}" >&2
-                continue  # Skip this match, pragma explicitly allows it
+                continue # Skip this match, pragma explicitly allows it
             fi
 
             echo -e "${RED}[ERROR] Dangerous pattern detected in install.sh${NC}" >&2
