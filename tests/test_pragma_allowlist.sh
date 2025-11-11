@@ -36,9 +36,13 @@ validate_install_sh_safe() {
     )
 
     for pattern in "${dangerous_patterns[@]}"; do
-        if grep -qE "$pattern" "$install_script" 2>/dev/null; then
-            return 1
-        fi
+        while IFS= read -r matched_line; do
+            # Issue #103: Check for pragma allowlist comment
+            if echo "$matched_line" | grep -qE '#[[:space:]]*pragma:[[:space:]]*allowlist[[:space:]]+[A-Za-z0-9_-]+'; then
+                continue  # Pragma allows this pattern
+            fi
+            return 1  # Pattern found without pragma
+        done < <(grep -E "$pattern" "$install_script" 2>/dev/null || true)
     done
 
     return 0

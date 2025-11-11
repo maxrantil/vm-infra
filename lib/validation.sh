@@ -341,13 +341,23 @@ validate_install_sh() {
     )
 
     for pattern in "${dangerous_patterns[@]}"; do
-        if matched_line=$(grep -m 1 -E "$pattern" "$install_script" 2> /dev/null); then
+        while IFS= read -r matched_line; do
+            # Issue #103: Check for pragma allowlist comment
+            # Format: # pragma: allowlist PATTERN-ID
+            # Allows documentation/help text containing dangerous patterns
+            if echo "$matched_line" | grep -qE '#[[:space:]]*pragma:[[:space:]]*allowlist[[:space:]]+[A-Za-z0-9_-]+'; then
+                local pragma_id
+                pragma_id=$(echo "$matched_line" | grep -oE '#[[:space:]]*pragma:[[:space:]]*allowlist[[:space:]]+[A-Za-z0-9_-]+' | awk '{print $NF}')
+                echo -e "${YELLOW}[INFO] Pattern allowed by pragma: $pragma_id${NC}" >&2
+                continue  # Skip this match, pragma explicitly allows it
+            fi
+
             echo -e "${RED}[ERROR] Dangerous pattern detected in install.sh${NC}" >&2
             echo "Pattern: $pattern" >&2
             echo "Matched line: ${matched_line:0:100}" >&2
             echo "For security, cannot proceed with potentially malicious install script." >&2
             exit 1
-        fi
+        done < <(grep -E "$pattern" "$install_script" 2> /dev/null || true)
     done
 
     # SEC-006: Whitelist validation (CVSS 5.0)
