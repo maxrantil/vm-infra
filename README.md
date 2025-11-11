@@ -10,6 +10,18 @@ This infrastructure automates the setup of Ubuntu 24.04 VMs with:
 - Personal dotfiles from [maxrantil/dotfiles](https://github.com/maxrantil/dotfiles)
 - Tmux Plugin Manager (TPM) and vim-plug
 
+## Architecture & Patterns
+
+For detailed information about the project's architectural patterns, see:
+
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Comprehensive guide to implementing optional features
+  - Optional feature pattern (demonstrated by `--test-dotfiles`)
+  - Security validation approach with CVE mitigations
+  - Testing strategy (TDD workflow with 69 automated tests)
+  - Complete implementation checklist for new features
+
+This document serves as a template for implementing similar features like `--test-ansible`, `--test-configs`, or any feature that modifies provisioning behavior while maintaining security and backward compatibility.
+
 ## Prerequisites
 
 - **libvirt/KVM** - Virtualization
