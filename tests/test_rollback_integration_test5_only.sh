@@ -23,15 +23,15 @@ echo -e "${YELLOW}========================================${NC}"
 echo -e "Tests run:    $TESTS_RUN"
 echo -e "${GREEN}Tests passed: $TESTS_PASSED${NC}"
 if [ $TESTS_FAILED -gt 0 ]; then
-    echo -e "${RED}Tests failed: $TESTS_FAILED${NC}"
+	echo -e "${RED}Tests failed: $TESTS_FAILED${NC}"
 else
-    echo -e "Tests failed: $TESTS_FAILED"
+	echo -e "Tests failed: $TESTS_FAILED"
 fi
 echo -e "Exit code:    $([ $TESTS_FAILED -gt 0 ] && echo 1 || echo 0)"
 
 # Exit with appropriate code
 if [ $TESTS_FAILED -gt 0 ]; then
-    exit 1
+	exit 1
 else
-    exit 0
+	exit 0
 fi

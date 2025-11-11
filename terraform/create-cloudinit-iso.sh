@@ -7,41 +7,41 @@ VM_NAME="$1"
 SSH_KEY="$2"
 
 if [ -z "$VM_NAME" ] || [ -z "$SSH_KEY" ]; then
-    echo "Usage: $0 <vm-name> <ssh-public-key>" >&2
-    exit 1
+	echo "Usage: $0 <vm-name> <ssh-public-key>" >&2
+	exit 1
 fi
 
 # HRI-002: Validate SSH public key format
 validate_ssh_key() {
-    local key="$1"
+	local key="$1"
 
-    # Check if key is empty
-    if [ -z "$key" ]; then
-        echo "ERROR: SSH key cannot be empty" >&2
-        return 1
-    fi
+	# Check if key is empty
+	if [ -z "$key" ]; then
+		echo "ERROR: SSH key cannot be empty" >&2
+		return 1
+	fi
 
-    # Create temporary file for validation
-    # MRI-001 FIX: Set secure permissions immediately to prevent TOCTOU
-    local temp_keyfile
-    temp_keyfile=$(mktemp)
-    chmod 600 "$temp_keyfile"
-    echo "$key" > "$temp_keyfile"
+	# Create temporary file for validation
+	# MRI-001 FIX: Set secure permissions immediately to prevent TOCTOU
+	local temp_keyfile
+	temp_keyfile=$(mktemp)
+	chmod 600 "$temp_keyfile"
+	echo "$key" >"$temp_keyfile"
 
-    # Use ssh-keygen to validate the key format
-    if ! ssh-keygen -l -f "$temp_keyfile" &> /dev/null; then
-        rm -f "$temp_keyfile"
-        echo "ERROR: Invalid SSH public key format" >&2
-        return 1
-    fi
+	# Use ssh-keygen to validate the key format
+	if ! ssh-keygen -l -f "$temp_keyfile" &>/dev/null; then
+		rm -f "$temp_keyfile"
+		echo "ERROR: Invalid SSH public key format" >&2
+		return 1
+	fi
 
-    rm -f "$temp_keyfile"
-    return 0
+	rm -f "$temp_keyfile"
+	return 0
 }
 
 # Validate SSH key before proceeding
 if ! validate_ssh_key "$SSH_KEY"; then
-    exit 1
+	exit 1
 fi
 
 # Strip trailing whitespace/newlines from SSH key for sed substitution
@@ -49,8 +49,8 @@ SSH_KEY=$(echo "$SSH_KEY" | tr -d '\n' | sed 's/[[:space:]]*$//')
 
 # HRI-001: Validate VM name (prevent path traversal and command injection)
 if [[ "$VM_NAME" =~ [^a-zA-Z0-9._-] ]]; then
-    echo "ERROR: VM name contains invalid characters. Use only alphanumeric, dots, underscores, and hyphens." >&2
-    exit 1
+	echo "ERROR: VM name contains invalid characters. Use only alphanumeric, dots, underscores, and hyphens." >&2
+	exit 1
 fi
 
 # Create temporary directory for cloud-init files
@@ -60,7 +60,7 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 
 # Create user-data with template file to avoid variable expansion issues
 # HRI-001 FIX: Use quoted heredoc and sed substitution instead of variable expansion
-cat > "$TEMP_DIR/user-data" << 'EOF'
+cat >"$TEMP_DIR/user-data" <<'EOF'
 #cloud-config
 
 # Explicit NoCloud datasource prevents waiting for cloud metadata (AWS/Azure/etc)
@@ -93,7 +93,7 @@ EOF
 sed -i "s|SSH_KEY_PLACEHOLDER|$SSH_KEY|g" "$TEMP_DIR/user-data"
 
 # Create meta-data with quoted heredoc
-cat > "$TEMP_DIR/meta-data" << 'EOF'
+cat >"$TEMP_DIR/meta-data" <<'EOF'
 instance-id: VM_NAME_PLACEHOLDER
 local-hostname: VM_NAME_PLACEHOLDER
 EOF
@@ -105,26 +105,26 @@ sed -i "s|VM_NAME_PLACEHOLDER|$VM_NAME|g" "$TEMP_DIR/meta-data"
 ISO_PATH="/var/lib/libvirt/images/${VM_NAME}-cloudinit.iso"
 
 # MV-001 FIX: Validate genisoimage success and file creation
-if ! genisoimage -output "$ISO_PATH" -volid cidata -joliet -rock "$TEMP_DIR/user-data" "$TEMP_DIR/meta-data" 2> /dev/null; then
-    echo "ERROR: Failed to create ISO with genisoimage" >&2
-    exit 1
+if ! genisoimage -output "$ISO_PATH" -volid cidata -joliet -rock "$TEMP_DIR/user-data" "$TEMP_DIR/meta-data" 2>/dev/null; then
+	echo "ERROR: Failed to create ISO with genisoimage" >&2
+	exit 1
 fi
 
 if [ ! -f "$ISO_PATH" ]; then
-    echo "ERROR: ISO file not created at $ISO_PATH" >&2
-    exit 1
+	echo "ERROR: ISO file not created at $ISO_PATH" >&2
+	exit 1
 fi
 
 # HRI-003 FIX: Set secure permissions (640) and ownership (root:libvirt)
 # MRI-002 FIX: Validate privileged operations succeed (fail-secure)
 if ! chmod 640 "$ISO_PATH"; then
-    echo "ERROR: Failed to set ISO permissions to 640" >&2
-    exit 1
+	echo "ERROR: Failed to set ISO permissions to 640" >&2
+	exit 1
 fi
 
 if ! chown root:libvirt "$ISO_PATH"; then
-    echo "ERROR: Failed to set ISO ownership to root:libvirt" >&2
-    exit 1
+	echo "ERROR: Failed to set ISO ownership to root:libvirt" >&2
+	exit 1
 fi
 
 echo "$ISO_PATH"

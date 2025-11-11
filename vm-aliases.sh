@@ -130,55 +130,55 @@ alias vmplan='cd ~/vm-infrastructure/terraform && terraform plan'
 # Usage: vmcp <local-file> <remote-path>
 # Example: vmcp ~/file.txt /home/mr/
 vmcp() {
-    local vm_ip
-    vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2> /dev/null)
-    if [ "$vm_ip" = "pending" ] || [ -z "$vm_ip" ]; then
-        echo "Error: No VM IP found"
-        return 1
-    fi
-    scp -i ~/.ssh/vm_key "$1" "mr@${vm_ip}:$2"
+	local vm_ip
+	vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2>/dev/null)
+	if [ "$vm_ip" = "pending" ] || [ -z "$vm_ip" ]; then
+		echo "Error: No VM IP found"
+		return 1
+	fi
+	scp -i ~/.ssh/vm_key "$1" "mr@${vm_ip}:$2"
 }
 
 # Copy files from current VM
 # Usage: vmget <remote-file> <local-path>
 # Example: vmget /home/mr/file.txt ~/
 vmget() {
-    local vm_ip
-    vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2> /dev/null)
-    if [ "$vm_ip" = "pending" ] || [ -z "$vm_ip" ]; then
-        echo "Error: No VM IP found"
-        return 1
-    fi
-    scp -i ~/.ssh/vm_key "mr@${vm_ip}:$1" "$2"
+	local vm_ip
+	vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2>/dev/null)
+	if [ "$vm_ip" = "pending" ] || [ -z "$vm_ip" ]; then
+		echo "Error: No VM IP found"
+		return 1
+	fi
+	scp -i ~/.ssh/vm_key "mr@${vm_ip}:$1" "$2"
 }
 
 # Execute command on current VM
 # Usage: vmrun <command>
 # Example: vmrun "ls -la"
 vmrun() {
-    local vm_ip
-    vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2> /dev/null)
-    if [ "$vm_ip" = "pending" ] || [ -z "$vm_ip" ]; then
-        echo "Error: No VM IP found"
-        return 1
-    fi
-    ssh -i ~/.ssh/vm_key mr@${vm_ip} "$@"
+	local vm_ip
+	vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2>/dev/null)
+	if [ "$vm_ip" = "pending" ] || [ -z "$vm_ip" ]; then
+		echo "Error: No VM IP found"
+		return 1
+	fi
+	ssh -i ~/.ssh/vm_key mr@${vm_ip} "$@"
 }
 
 # Port forward from VM to localhost
 # Usage: vmport <vm-port> [local-port]
 # Example: vmport 8080 3000  # Forward VM's 8080 to localhost:3000
 vmport() {
-    local vm_ip
-    vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2> /dev/null)
-    if [ "$vm_ip" = "pending" ] || [ -z "$vm_ip" ]; then
-        echo "Error: No VM IP found"
-        return 1
-    fi
-    local vm_port=$1
-    local local_port=${2:-$vm_port}
-    echo "Forwarding localhost:${local_port} -> ${vm_ip}:${vm_port}"
-    ssh -i ~/.ssh/vm_key -L ${local_port}:localhost:${vm_port} -N mr@${vm_ip}
+	local vm_ip
+	vm_ip=$(cd ~/vm-infrastructure/terraform && terraform output -raw vm_ip 2>/dev/null)
+	if [ "$vm_ip" = "pending" ] || [ -z "$vm_ip" ]; then
+		echo "Error: No VM IP found"
+		return 1
+	fi
+	local vm_port=$1
+	local local_port=${2:-$vm_port}
+	echo "Forwarding localhost:${local_port} -> ${vm_ip}:${vm_port}"
+	ssh -i ~/.ssh/vm_key -L ${local_port}:localhost:${vm_port} -N mr@${vm_ip}
 }
 
 # =============================================================================
