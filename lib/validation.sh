@@ -49,8 +49,8 @@ NC="${NC:-\033[0m}"
 
 # Permission constants
 readonly PERM_SSH_DIR="700"
-readonly PERM_PRIVATE_KEY_RW="600"  # pragma: allowlist secret
-readonly PERM_PRIVATE_KEY_RO="400"  # pragma: allowlist secret
+readonly PERM_PRIVATE_KEY_RW="600" # pragma: allowlist secret
+readonly PERM_PRIVATE_KEY_RO="400" # pragma: allowlist secret
 readonly PERM_WORLD_WRITABLE_BIT="8#002"
 readonly PERM_GROUP_WRITABLE_BIT="8#020"
 
