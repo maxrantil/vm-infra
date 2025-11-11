@@ -62,6 +62,7 @@ repos:
       - id: check-shebang-scripts-are-executable
         name: Check scripts are executable
         description: Ensure scripts with shebangs are executable
+        exclude: ^lib/.*\.sh$  # Sourced libraries should not be executable
 
   # =============================================================================
   # SHELL SCRIPT LINTING (if repo has shell scripts)
