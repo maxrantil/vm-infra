@@ -331,7 +331,10 @@ validate_install_sh() {
         "base64.*-d.*\|"
         "xxd"
         "\\\${IFS}"
-        "\\\$[A-Z_]+.*\\\$[A-Z_]+"
+        # Issue #103: Removed overly-broad \$[A-Z_]+.*\$[A-Z_]+ pattern
+        # Reason: Catches legitimate shell code (for loops, path construction)
+        # Security: Direct RCE still caught by curl.*\|.*(bash|sh), eval, exec patterns
+        # Note: Variable-based command construction with pipes already caught by existing patterns
 
         # === NETWORK ACCESS ===
         "nc "
