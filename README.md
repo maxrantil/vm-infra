@@ -354,6 +354,31 @@ vm-infrastructure/
 └── README.md
 ```
 
+## Library Organization
+
+The project uses a modular library structure for shared functionality:
+
+### lib/validation.sh
+
+Security-hardened validation functions for:
+
+- **SSH key validation**: Directory permissions, key content, keypair completeness
+- **Dotfiles security**: Symlink detection (CVE-1), shell injection prevention (CVE-3), TOCTOU protection (SEC-001)
+- **install.sh safety**: Malicious pattern detection (CVE-2), permission validation (SEC-005), whitelist validation (SEC-006)
+- **Git repository validation**: Repository integrity checks (BUG-006)
+
+**Usage:**
+
+```bash
+#!/bin/bash
+source "$(dirname "$0")/lib/validation.sh"
+validate_dotfiles_path_exists "/path/to/dotfiles"
+```
+
+**Documentation**: See [lib/README.md](lib/README.md) for complete function reference and security coverage.
+
+**Testing**: The validation library is validated via `tests/test_local_dotfiles.sh` (69 tests, 100% passing).
+
 ## Security Notes
 
 - **Never commit**:
