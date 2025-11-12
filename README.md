@@ -358,6 +358,20 @@ ansible-playbook -i inventory.ini playbook.yml
 
 ## SSH Access
 
+### Recommended: Use vm-ssh.sh Helper Script
+
+```bash
+# Auto-starts VM and connects (one command)
+./vm-ssh.sh <vm-name>
+```
+
+**Benefits**: Automatic startup, smart IP discovery, SSH verification, helpful error messages.
+**Documentation**: See [VM-SSH-HELPER.md](docs/VM-SSH-HELPER.md) for full guide and [VM-QUICK-REFERENCE.md](VM-QUICK-REFERENCE.md) for daily operations.
+
+### Manual SSH Connection
+
+If you prefer manual connection:
+
 ```bash
 ssh -i ~/.ssh/vm_key mr@<VM_IP>
 ```
