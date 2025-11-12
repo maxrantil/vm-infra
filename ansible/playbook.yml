@@ -304,13 +304,19 @@
 
         # Install tmux plugin manager (TPM)
         # Security: Use HTTPS for public repository (no deploy key needed)
-        # Note: Temporarily disabled for local dotfiles testing (git config conflicts)
-        # TODO: Re-enable after fixing git URL rewriting in dotfiles
-        # - name: Clone TPM (tmux plugin manager)
-        #   command: "git -c 'url.https://github.com/.insteadOf=git@github.com:' clone https://github.com/tmux-plugins/tpm {{ tmux_plugins_dir }}"
-        #   args:
-        #     creates: "{{ tmux_plugins_dir }}/.git"
-        #   become_user: "{{ ansible_user }}"
+        # Workaround: Disable global git config to prevent HTTPS→SSH rewriting
+        # Context: User's .gitconfig rewrites all https://github.com/ to git@github.com:
+        #          which breaks public repo clones (no deploy key for tmux-plugins/tpm)
+        # Solution: Override GIT_CONFIG_GLOBAL to bypass URL rewriting for this clone
+        # TODO (Phase 2): Update dotfiles/.gitconfig to only rewrite user repos
+        #                 [url "git@github.com:maxrantil/"] insteadOf = https://github.com/maxrantil/
+        - name: Clone TPM (tmux plugin manager)
+          command: "git clone https://github.com/tmux-plugins/tpm {{ tmux_plugins_dir }}"
+          environment:
+            GIT_CONFIG_GLOBAL: /dev/null
+          args:
+            creates: "{{ tmux_plugins_dir }}/.git"
+          become_user: "{{ ansible_user }}"
 
         - name: Configure SSH to disable password auth
           lineinfile:
