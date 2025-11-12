@@ -43,11 +43,11 @@ cleanup() {
     echo ""
     echo "Cleaning up test VM..."
     if sudo virsh list --all | grep -q "$TEST_VM"; then
-        sudo virsh destroy "$TEST_VM" 2>/dev/null || true
-        sudo virsh undefine "$TEST_VM" 2>/dev/null || true
-        sudo virsh vol-delete "${TEST_VM}.qcow2" default 2>/dev/null || true
-        sudo virsh vol-delete "${TEST_VM}-cloudinit.iso" default 2>/dev/null || true
-        rm -f "$SCRIPT_DIR/ansible/inventory.d/${TEST_VM}.ini" 2>/dev/null || true
+        sudo virsh destroy "$TEST_VM" 2> /dev/null || true
+        sudo virsh undefine "$TEST_VM" 2> /dev/null || true
+        sudo virsh vol-delete "${TEST_VM}.qcow2" default 2> /dev/null || true
+        sudo virsh vol-delete "${TEST_VM}-cloudinit.iso" default 2> /dev/null || true
+        rm -f "$SCRIPT_DIR/ansible/inventory.d/${TEST_VM}.ini" 2> /dev/null || true
     fi
     echo "Cleanup complete"
 }
@@ -113,10 +113,11 @@ test_start "Script detects running VM state correctly"
 
 # Use existing work-vm-1 for this test (already running)
 if sudo virsh list --all | grep -q "work-vm-1.*running"; then
-    OUTPUT=$("$VM_SSH_SCRIPT" work-vm-1 <<EOF 2>&1 || true
+    OUTPUT=$(
+        "$VM_SSH_SCRIPT" work-vm-1 << EOF 2>&1 || true
 exit
 EOF
-)
+    )
 
     if echo "$OUTPUT" | grep -q "already running"; then
         test_pass
@@ -139,14 +140,15 @@ if sudo virsh list --all | grep -q "work-vm-1"; then
 
     # Ensure VM is shut off for test
     if [ "$ORIGINAL_STATE" = "running" ]; then
-        sudo virsh shutdown work-vm-1 >/dev/null 2>&1
+        sudo virsh shutdown work-vm-1 > /dev/null 2>&1
         sleep 5
     fi
 
-    OUTPUT=$("$VM_SSH_SCRIPT" work-vm-1 <<EOF 2>&1 || true
+    OUTPUT=$(
+        "$VM_SSH_SCRIPT" work-vm-1 << EOF 2>&1 || true
 exit
 EOF
-)
+    )
 
     if echo "$OUTPUT" | grep -q "shut off.*starting"; then
         test_pass
@@ -156,7 +158,7 @@ EOF
 
     # Restore original state
     if [ "$ORIGINAL_STATE" = "running" ]; then
-        sudo virsh start work-vm-1 >/dev/null 2>&1 || true
+        sudo virsh start work-vm-1 > /dev/null 2>&1 || true
     fi
 else
     echo -e "${YELLOW}  ⊘ SKIP: work-vm-1 not available, cannot test${NC}"
@@ -172,14 +174,15 @@ if sudo virsh list --all | grep -q "work-vm-1"; then
     # Ensure VM is running
     STATE=$(sudo virsh list --all | grep "work-vm-1" | awk '{print $3}')
     if [ "$STATE" != "running" ]; then
-        sudo virsh start work-vm-1 >/dev/null 2>&1
+        sudo virsh start work-vm-1 > /dev/null 2>&1
         sleep 5
     fi
 
-    OUTPUT=$("$VM_SSH_SCRIPT" work-vm-1 <<EOF 2>&1 || true
+    OUTPUT=$(
+        "$VM_SSH_SCRIPT" work-vm-1 << EOF 2>&1 || true
 exit
 EOF
-)
+    )
 
     # Check for IP address in output (192.168.122.x format)
     if echo "$OUTPUT" | grep -qE "IP address: 192\.168\.122\.[0-9]+"; then
@@ -198,10 +201,11 @@ fi
 test_start "Script verifies SSH connectivity before connecting"
 
 if sudo virsh list --all | grep -q "work-vm-1.*running"; then
-    OUTPUT=$("$VM_SSH_SCRIPT" work-vm-1 <<EOF 2>&1 || true
+    OUTPUT=$(
+        "$VM_SSH_SCRIPT" work-vm-1 << EOF 2>&1 || true
 exit
 EOF
-)
+    )
 
     if echo "$OUTPUT" | grep -q "SSH connectivity verified"; then
         test_pass
@@ -265,9 +269,9 @@ fi
 # ===================================================================
 test_start "Script uses color codes for output"
 
-if grep -q "RED=" "$VM_SSH_SCRIPT" && \
-   grep -q "GREEN=" "$VM_SSH_SCRIPT" && \
-   grep -q "YELLOW=" "$VM_SSH_SCRIPT"; then
+if grep -q "RED=" "$VM_SSH_SCRIPT" &&
+    grep -q "GREEN=" "$VM_SSH_SCRIPT" &&
+    grep -q "YELLOW=" "$VM_SSH_SCRIPT"; then
     test_pass
 else
     test_fail "Color codes not defined in script"

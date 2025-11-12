@@ -69,7 +69,7 @@ echo ""
 echo -e "${YELLOW}Getting IP address...${NC}"
 VM_IP=""
 for attempt in {1..10}; do
-    VM_IP=$(sudo virsh domifaddr "$VM_NAME" 2>/dev/null | awk 'NR==3 {print $4}' | cut -d'/' -f1)
+    VM_IP=$(sudo virsh domifaddr "$VM_NAME" 2> /dev/null | awk 'NR==3 {print $4}' | cut -d'/' -f1)
 
     if [ -n "$VM_IP" ] && [ "$VM_IP" != "pending" ]; then
         break
@@ -96,13 +96,13 @@ echo ""
 
 # Test SSH connectivity before connecting
 echo -e "${YELLOW}Testing SSH connectivity...${NC}"
-if ! ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes mr@"$VM_IP" 'exit' 2>/dev/null; then
+if ! ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes mr@"$VM_IP" 'exit' 2> /dev/null; then
     echo -e "${YELLOW}[WARNING] SSH not ready yet, waiting for cloud-init...${NC}"
 
     # Wait for cloud-init to complete (with timeout)
     CLOUD_INIT_SUCCESS=false
     for attempt in {1..30}; do
-        if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=2 -o BatchMode=yes mr@"$VM_IP" 'cloud-init status --wait' 2>/dev/null; then
+        if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=2 -o BatchMode=yes mr@"$VM_IP" 'cloud-init status --wait' 2> /dev/null; then
             CLOUD_INIT_SUCCESS=true
             break
         fi
