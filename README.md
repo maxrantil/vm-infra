@@ -213,6 +213,7 @@ ssh -i ~/.ssh/vm_key mr@<VM_IP>
 ### Test Mode Features
 
 - ✅ Uses local dotfiles (no git push needed)
+- ✅ **Auto-skips deploy key prompt** (no manual "skip" needed)
 - ✅ Validates dotfiles directory exists
 - ✅ Warns if install.sh missing
 - ✅ Converts relative to absolute paths
@@ -264,9 +265,21 @@ VMs use repository-specific deploy keys instead of copying your personal SSH key
 - **Following least privilege** - Deploy keys are repository-specific
 - **Protecting your account** - Your personal SSH key never leaves your machine
 
-### Interactive Setup (Recommended)
+### Automatic Skip in Test Mode
 
-The provision script now includes an **interactive deploy key setup** that pauses after Ansible runs:
+When using `--test-dotfiles` with local dotfiles, the deploy key prompt is **automatically skipped** since GitHub access is not needed (dotfiles are copied directly from your host machine):
+
+```bash
+./provision-vm.sh test-vm --test-dotfiles ../dotfiles
+# ... provisioning happens ...
+# Deploy key setup automatically skipped (no manual interaction needed)
+```
+
+This smart detection eliminates unnecessary manual steps when testing local dotfiles changes.
+
+### Interactive Setup (Regular Mode)
+
+The provision script includes an **interactive deploy key setup** that pauses after Ansible runs:
 
 ```bash
 ./provision-vm.sh my-vm
