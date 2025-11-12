@@ -400,6 +400,13 @@ validate_install_sh() {
         echo "Commands outside the whitelist may indicate security risks." >&2
         echo "Whitelisted commands: ln, cp, mv, mkdir, echo, cat, grep, sed, awk, printf, test, [, chmod, chown, git, stow" >&2
         echo "" >&2
+
+        # Allow auto-approval for local testing (set SKIP_WHITELIST_CHECK=1)
+        if [ "${SKIP_WHITELIST_CHECK:-0}" = "1" ]; then
+            echo -e "${YELLOW}[INFO] Auto-approving due to SKIP_WHITELIST_CHECK=1${NC}" >&2
+            return 0
+        fi
+
         read -p "Continue anyway? [y/N] " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then

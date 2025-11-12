@@ -225,17 +225,28 @@
             state: present
           become_user: "{{ ansible_user }}"
 
-        # Clone dotfiles repository
+        # Copy local dotfiles (if --test-dotfiles flag used)
+        - name: Copy local dotfiles from host to VM
+          synchronize:
+            src: "{{ dotfiles_local_path }}/"
+            dest: "{{ dotfiles_dir }}"
+            delete: no
+            recursive: yes
+          become_user: "{{ ansible_user }}"
+          when: dotfiles_local_path is defined and dotfiles_local_path != ''
+          register: dotfiles_copy_result
+
+        # Clone dotfiles repository (if NOT using local dotfiles)
         # CVE-4: Git shallow clone to limit history exposure (CVSS 7.5)
-        # BUG-007: Properly handle dotfiles_local_path variable (may have spaces)
         - name: Clone dotfiles repository
           git:
-            repo: "{% if dotfiles_local_path is defined and dotfiles_local_path != '' %}file://{{ dotfiles_local_path }}{% else %}{{ dotfiles_repo }}{% endif %}"
+            repo: "{{ dotfiles_repo }}"
             dest: "{{ dotfiles_dir }}"
             clone: yes
             update: yes
             depth: 1
           become_user: "{{ ansible_user }}"
+          when: dotfiles_local_path is not defined or dotfiles_local_path == ''
           register: dotfiles_clone_result
 
         # Run dotfiles install script
@@ -293,13 +304,13 @@
 
         # Install tmux plugin manager (TPM)
         # Security: Use HTTPS for public repository (no deploy key needed)
-        - name: Clone TPM (tmux plugin manager)
-          git:
-            repo: https://github.com/tmux-plugins/tpm
-            dest: "{{ tmux_plugins_dir }}"
-            clone: yes
-            update: yes
-          become_user: "{{ ansible_user }}"
+        # Note: Temporarily disabled for local dotfiles testing (git config conflicts)
+        # TODO: Re-enable after fixing git URL rewriting in dotfiles
+        # - name: Clone TPM (tmux plugin manager)
+        #   command: "git -c 'url.https://github.com/.insteadOf=git@github.com:' clone https://github.com/tmux-plugins/tpm {{ tmux_plugins_dir }}"
+        #   args:
+        #     creates: "{{ tmux_plugins_dir }}/.git"
+        #   become_user: "{{ ansible_user }}"
 
         - name: Configure SSH to disable password auth
           lineinfile:
