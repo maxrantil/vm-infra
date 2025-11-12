@@ -174,36 +174,21 @@ ssh work-vm-2
 
 ### SSH Access Script (Helper)
 
-Create a helper script `vm-ssh.sh`:
+The `vm-ssh.sh` script provides one-command VM access with automatic startup:
 
 ```bash
-#!/bin/bash
-# ABOUTME: Helper script to SSH into VMs by name
-
-VM_NAME="$1"
-
-if [ -z "$VM_NAME" ]; then
-    echo "Usage: $0 <vm-name>"
-    echo "Example: $0 work-vm-1"
-    exit 1
-fi
-
-# Get IP from merged inventory
-VM_IP=$(grep "^$VM_NAME " ansible/inventory.ini | awk '{print $2}' | cut -d'=' -f2)
-
-if [ -z "$VM_IP" ]; then
-    echo "ERROR: VM '$VM_NAME' not found in inventory"
-    exit 1
-fi
-
-ssh -i ~/.ssh/vm_key mr@"$VM_IP"
-```
-
-Usage:
-```bash
-chmod +x vm-ssh.sh
+# Connect to VM (auto-starts if shut off)
 ./vm-ssh.sh work-vm-1
 ```
+
+**Features:**
+- Automatically starts shut-off VMs
+- Smart IP discovery with retry logic
+- Waits for network initialization and cloud-init
+- Verifies SSH connectivity before connecting
+- Color-coded output with helpful error messages
+
+**Full Documentation:** See [VM-SSH-HELPER.md](VM-SSH-HELPER.md) for complete usage guide, troubleshooting, and examples.
 
 ---
 
