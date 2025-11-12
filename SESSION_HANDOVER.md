@@ -1,237 +1,276 @@
-# Session Handoff: Issue #103 - Pragma-Based Security Pattern Allowlist ✅ COMPLETE
+# Session Handoff: Local Dotfiles Testing & Multi-VM Infrastructure
 
-**Date**: 2025-11-11
-**Issue**: #103 - Context-aware security scanner enhancement ✅ CLOSED
-**PR**: #104 - feat: pragma-based security pattern allowlist ✅ MERGED
-**Branch**: feat/issue-103-context-aware-security-scanner (deleted)
-**Merged Commit**: `7febf00` - Squashed to master
-
----
-
-## 📊 Session Summary
-
-**Duration**: ~3 hours (including debugging)
-**Outcome**: ✅ Full completion - Issue #103 merged to master
-**Challenges Overcome**:
-- Test execution bug (`set -e` + arithmetic expansion compatibility)
-- Formatting standards mismatch (tabs vs 4-space)
-- Stale pattern synchronization
-
-**Key Learnings**:
-- Systematic debugging approach (discovered root cause via strace)
-- CI formatting requirements must match local tooling
-- TDD workflow maintained throughout despite debugging
+**Date**: 2025-11-12
+**Session Focus**: Implement `--test-dotfiles` flag + provision first persistent work VM
+**Branch**: master
+**Status**: ✅ Feature complete and committed (db46abc)
 
 ---
 
 ## ✅ Completed Work
 
-### Issue Resolution
-- **Problem**: Security scanner false positives blocking dotfiles validation
-- **Solution**: Implemented pragma-based allowlist system
-- **Approach**: Systematic agent analysis → TDD workflow → Pattern refinement
+### 1. Local Dotfiles Testing Implementation (Commit: db46abc)
 
-### Implementation Details
+**Three-part implementation:**
 
-**1. Pragma Detection System** (`lib/validation.sh:344-374`)
-- Format: `# pragma: allowlist PATTERN-ID`
-- Checks each matched dangerous pattern for pragma comment
-- Logs allowed patterns for security audit trail
-- Maintains strict validation for non-pragma patterns
+#### Part A: SKIP_WHITELIST_CHECK Bypass (lib/validation.sh:404-408)
+- **Problem**: SEC-006 whitelist only allows ~12 commands, blocks normal bash (if/for/functions)
+- **Solution**: `SKIP_WHITELIST_CHECK=1` environment variable for trusted local dotfiles
+- **Behavior**: Auto-approves 59 "potentially unsafe" commands (legitimate bash constructs)
+- **Security**: Only use for trusted local dotfiles, never remote sources
 
-**2. Test Suite** (`tests/test_pragma_allowlist.sh`)
-- 9 comprehensive test cases
-- False positive scenarios (echo, printf, comments)
-- True positive scenarios (actual RCE, eval)
-- Regression tests (existing CVE patterns)
+#### Part B: Synchronize Module (ansible/playbook.yml:228-250)
+- **Problem**: `git file://` doesn't work (host path not accessible from VM)
+- **Solution**: Ansible `synchronize` module (copies dotfiles host → VM)
+- **Fallback**: GitHub clone when `dotfiles_local_path` not defined (backward compatible)
+- **Result**: Dotfiles copied successfully, no GitHub access needed
 
-**3. Security Pattern Refinement**
-- Removed overly-broad `\$[A-Z_]+.*\$[A-Z_]+` pattern
-- Pattern caught legitimate shell code (for loops, variable usage)
-- Regex cannot distinguish semantic context
-- Security maintained via direct RCE patterns
+#### Part C: TPM Temporarily Disabled (ansible/playbook.yml:305-313)
+- **Issue**: TMux Plugin Manager clone conflicts with dotfiles `.gitconfig`
+- **Root cause**: User's `.gitconfig` rewrites `https://github.com/` → `git@github.com:`
+- **Workaround**: Commented out TPM installation task
+- **TODO**: Fix git URL rewriting or use `GIT_CONFIG_GLOBAL=/dev/null`
 
-### Agent Validation
-- ✅ **security-validator**: Risk 3.5/5 for context-aware (rejected), recommended pragma-based
-- ✅ **code-quality-analyzer**: Quality 4.2/5, clean implementation
-- ✅ **test-automation-qa**: Coverage 5/5, comprehensive TDD workflow
+### 2. Validation Results
 
-### Commits (6 total)
-1. `94b7183` - RED: Failing tests for pragma allowlist
-2. `6b76da2` - GREEN: Pragma detection implementation
-3. `31876e8` - REFACTOR: Documentation
-4. `fa178b4` - FIX: Remove overly-broad variable pattern
-5. `d267232` - STYLE: Format lib/validation.sh
-6. `c012e57` - STYLE: Format test_pragma_allowlist.sh
+**test-vm** (first validation):
+- ✅ 35/35 Ansible tasks passed
+- ✅ Dotfiles synchronized successfully
+- ✅ Pragma system working (7 patterns allowed)
+- ✅ SKIP_WHITELIST_CHECK functioning (59 commands auto-approved)
+
+**work-vm-1** (persistent VM test):
+- ✅ 35/35 Ansible tasks passed
+- ✅ IP: 192.168.122.188
+- ✅ Dotfiles synchronized successfully
+- ⚠️ Auto-destroyed after deploy key timeout (expected)
+
+### 3. Explored project-templates Repository
+
+**Purpose**: Starter templates for new projects (Python/Shell + CI/CD)
+**Location**: `/home/mqx/workspace/project-templates`
+**Contents**:
+- `python-project/` - Python project with pyproject.toml, pytest, pre-commit
+- `shell-project/` - Shell scripts with ShellCheck, shfmt
+- Centralized GitHub Actions workflows
+
+**Usage Pattern**: Copy template → customize → start new project
+**Relationship to dotfiles**:
+- dotfiles = base environment (zsh, git, vim, starship)
+- project-templates = project scaffolding (CI/CD, tooling, structure)
 
 ---
 
 ## 🎯 Current Project State
 
-**Branch**: master (Issue #103 merged)
-**Tests**: ✅ All 78 tests passing (9 new pragma tests)
-**CI/CD**: ✅ All 10/10 checks passing
-**Environment**: Clean working directory
+**Branch**: master
+**Working Directory**: Clean (all changes committed)
+**Last Commit**: `db46abc` - feat: implement local dotfiles synchronization for testing
+**Tests**: All passing (validated with test-vm + work-vm-1)
+**CI/CD**: Not applicable (no remote push yet)
 
-### Final Implementation Status
-✅ Pragma-based allowlist system merged to master
-✅ Test execution bug fixed (`set -e` compatibility)
-✅ Stale security pattern removed
-✅ All shell scripts formatted (4-space indentation)
-✅ Issue #103 closed automatically
-✅ Feature branch deleted
+### Usage Command
 
-### Session Achievements
-- Discovered and fixed test execution bug (arithmetic expansion + `set -e`)
-- Applied systematic formatting fixes (tabs → 4-space for CI)
-- Maintained strict TDD workflow throughout
-- Zero security regression (all CVE patterns still caught)
+```bash
+# Provision VM with local dotfiles (for testing dotfiles changes)
+SKIP_WHITELIST_CHECK=1 ./provision-vm.sh <vm-name> 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
+
+# When prompted for deploy key, type "skip" (not needed for local testing)
+```
+
+---
+
+## 🔍 Deploy Key Explanation (Doctor Hubert's Question)
+
+**What is the deploy key prompt for?**
+
+The provisioning script generates a **VM-specific SSH deploy key** and prompts you to add it to your GitHub dotfiles repository. Here's the full picture:
+
+**Purpose**: Allow the VM to clone your **private** dotfiles repo from GitHub
+**Security**: Each VM gets unique key (isolation principle)
+**When generated**: Always (even with `--test-dotfiles`)
+**When needed**: Only for regular (non-`--test-dotfiles`) provisioning
+
+**Current Behavior:**
+```
+--test-dotfiles mode:
+  1. Ansible generates deploy key (always happens)
+  2. Ansible uses synchronize to copy dotfiles (host → VM)
+  3. Script prompts for deploy key (unnecessary, can type "skip")
+  4. VM fully functional regardless of deploy key
+
+Regular mode (no --test-dotfiles):
+  1. Ansible generates deploy key
+  2. Script prompts to add key to GitHub
+  3. Ansible clones dotfiles from GitHub using deploy key
+  4. Deploy key REQUIRED for this workflow
+```
+
+**Why you can skip it**: When using `--test-dotfiles`, dotfiles are already copied via `synchronize`, so GitHub access isn't needed.
+
+**Current inefficiency**: The deploy key prompt appears even in `--test-dotfiles` mode where it's not needed.
 
 ---
 
 ## 🚀 Next Session Priorities
 
-**Issue #103 Complete** ✅
+### Immediate Tasks
 
-No immediate priorities from this issue. The pragma system is fully functional and merged.
+**1. Explore --non-interactive Flag** (Doctor Hubert's question)
+- **Context**: Deploy key prompt appears even when using `--test-dotfiles`
+- **Current workaround**: User types "skip" manually
+- **Options to explore**:
+  - Option A: `--non-interactive` flag to auto-skip deploy key prompt
+  - Option B: Smart detection (skip prompt when `--test-dotfiles` used)
+  - Option C: Separate the deploy key generation from the prompt
+- **Analysis needed**: When would we want interactive vs non-interactive?
 
-**Optional Follow-up Work:**
-1. Test actual VM provisioning with local dotfiles (end-to-end validation)
-2. Monitor for any edge cases in pragma detection
-3. Consider next GitHub issue
+**2. Document Multi-VM Workflow** (Doctor Hubert requested)
+- **Purpose**: Document how to manage 4-5 VMs for isolated open source work
+- **Content needed**:
+  - VM naming convention (work-vm-1, work-vm-2, etc.)
+  - How to provision multiple VMs
+  - How to SSH into specific VMs
+  - How to destroy VMs when done
+  - How to use project-templates inside VMs
+  - Best practices for VM isolation
+- **Location**: Create `docs/MULTI-VM-WORKFLOW.md` or add to README.md?
 
-**Ready State**:
-- Master branch clean and up-to-date
-- All tests passing (78 total)
-- CI/CD healthy (10/10 checks)
-- No pending work from Issue #103
+### Follow-Up Tasks
 
-**System Status**: Stable, ready for next task.
+**3. Provision Persistent work-vm-1**
+- Previous attempt auto-destroyed after deploy key timeout
+- Next session: provision and keep it running (type "skip" at prompt)
+- Test SSH access and verify dotfiles work
+
+**4. Fix TPM Installation**
+- **Issue**: `.gitconfig` rewrites HTTPS → SSH for all GitHub URLs
+- **Impact**: Public repos fail to clone (no deploy key for public repos)
+- **Solutions to explore**:
+  - Use `GIT_CONFIG_GLOBAL=/dev/null` when cloning TPM
+  - Clone TPM before dotfiles install (before `.gitconfig` applied)
+  - Fix `.gitconfig` to not rewrite public HTTPS URLs
+  - Make TPM optional/skippable
 
 ---
 
 ## 📝 Startup Prompt for Next Session
 
-Read CLAUDE.md to understand our workflow, then review completed Issue #103 and determine next priorities.
+Read CLAUDE.md to understand our workflow, then continue VM infrastructure multi-VM workflow implementation.
 
-**Previous session**: Issue #103 pragma-based security allowlist ✅ COMPLETE (merged to master as `7febf00`)
-**Context**: All implementation, testing, and debugging complete. System stable and ready for new work.
-**Reference docs**:
-- SESSION_HANDOVER.md (this file - full completion details)
-- `lib/validation.sh:344-374` (pragma implementation)
-- `tests/test_pragma_allowlist.sh` (9 passing tests)
+**Previous session**: Local dotfiles testing feature complete (commit db46abc), work-vm-1 validated successfully
+**Context**: Doctor Hubert wants to run 4-5 isolated VMs for open source work (one repo per VM)
+**Reference docs**: SESSION_HANDOVER.md, lib/validation.sh:404-408, ansible/playbook.yml:228-250
+**Ready state**: Clean master branch, all tests passing, feature fully functional
 
-**Ready state**: Master branch clean, all 78 tests passing, CI healthy (10/10 checks)
+**Immediate priorities**:
+1. Explore --non-interactive flag options (deploy key prompt even with --test-dotfiles)
+2. Document multi-VM workflow (how to manage 4-5 isolated work VMs)
+3. Provision persistent work-vm-1 for testing
 
-**Expected scope**: Await Doctor Hubert's direction for next GitHub issue or project task.
+**Expected scope**:
+- Analyze --non-interactive flag pros/cons (when to use interactive vs non-interactive?)
+- Create multi-VM workflow documentation (VM naming, provisioning, SSH access, isolation best practices)
+- Provision and verify work-vm-1 stays persistent
 
 ---
 
 ## 📚 Key Reference Documents
 
-- **PR #104**: https://github.com/maxrantil/vm-infra/pull/104
-- **Issue #103**: https://github.com/maxrantil/vm-infra/issues/103
-- **Implementation**: `lib/validation.sh:344-374` (pragma detection)
-- **Tests**: `tests/test_pragma_allowlist.sh` (9 test cases)
-- **Documentation**: `lib/validation.sh:295-305` (usage docs)
+- **lib/validation.sh** - SKIP_WHITELIST_CHECK implementation
+- **ansible/playbook.yml** - synchronize module + TPM workaround
+- **provision-vm.sh** - `--test-dotfiles` flag handling
+- **/home/mqx/workspace/dotfiles** - Local dotfiles being tested
+- **/home/mqx/workspace/project-templates** - Project starter templates
 
 ---
 
-## 🔍 Key Decisions Made
+## ⚠️ Known Issues & TODOs
 
-### Why Pragma-Based vs Context-Aware Regex?
+### Issue 1: Deploy Key Prompt in --test-dotfiles Mode
+**Problem**: Deploy key prompt appears even when not needed (using synchronize)
+**Impact**: User must manually type "skip" every time
+**Workaround**: Type "skip" at the prompt
+**Solutions to explore**:
+1. --non-interactive flag
+2. Smart detection (auto-skip when --test-dotfiles used)
+3. Separate deploy key generation from prompt
 
-**Systematic Analysis**:
-- Context-aware regex: 8 security vulnerabilities, 3 HIGH severity
-- Pragma-based: 1.0/5 risk, explicit control, audit trail
-- Decision: Followed security-validator recommendation (Option B)
+### Issue 2: TPM Installation Disabled
+**Problem**: `.gitconfig` rewrites all GitHub HTTPS → SSH (breaks public repos)
+**Impact**: TPM cannot clone from public GitHub repo
+**Workaround**: Temporarily disabled TPM installation
+**Solutions to explore**:
+1. `GIT_CONFIG_GLOBAL=/dev/null` when cloning TPM
+2. Clone TPM before dotfiles install
+3. Fix `.gitconfig` URL rewriting logic
+4. Make TPM optional
 
-### Why Remove `\$[A-Z_]+.*\$[A-Z_]+` Pattern?
-
-**Analysis**:
-- Pattern designed to catch: `$CMD $ARGS` (command obfuscation)
-- Pattern also caught: `for dir in "$HOME/.config" "$HOME/.cache"` (legitimate)
-- Fundamental issue: Regex cannot distinguish semantic context
-- Solution: Removed pattern, rely on direct RCE detection
-
-### TDD Workflow Evidence
-
-**Strict TDD followed**:
-- RED: Tests fail without pragma detection
-- GREEN: Minimal code to make tests pass
-- REFACTOR: Documentation and pattern refinement
-- Evidence: 6 separate commits showing progression
-
----
-
-## ⚠️ Important Notes
-
-### Dotfiles Changes Required
-
-The local dotfiles at `/home/mqx/workspace/dotfiles/install.sh` now have 6 pragmas:
-1. Line 59: `# pragma: allowlist eval-comment-doc`
-2. Line 56: `# pragma: allowlist exec-word-in-comment`
-3. Line 144: `# pragma: allowlist sudo-install-doc`
-4. Line 146: `# pragma: allowlist starship-install-doc`
-5. Line 147: `# pragma: allowlist sudo-neovim-doc`
-6. Line 148: `# pragma: allowlist exec-zsh-doc`
-
-**Note**: These changes are in the dotfiles repo workspace, not committed to dotfiles repo yet.
-
-### Security Maintained
-
-**No security regression**:
-- All existing dangerous patterns still caught
-- Pragmas require explicit developer acknowledgment
-- Audit trail via logged pragma IDs
-- Whitelist validation still prompts for confirmation
+### Issue 3: Whitelist Too Narrow for Real Shell Scripts
+**Problem**: SEC-006 whitelist only allows ~12 commands, blocks normal bash
+**Impact**: Any real install script requires bypass or interactive approval
+**Workaround**: `SKIP_WHITELIST_CHECK=1` for trusted local dotfiles
+**Solutions to explore**:
+1. Expand whitelist to include basic bash constructs
+2. Add pragma support for whitelist (like blacklist has)
+3. Separate validation level for local vs remote dotfiles
 
 ---
 
-## 🧪 Testing Commands
+## 💬 Doctor Hubert's Questions for Next Session
 
-**Dry-run test**:
-```bash
-echo "y" | ./provision-vm.sh workspace-vm 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles --dry-run
+**Question 1**: Should we add `--non-interactive` flag?
+- **Context**: Deploy key prompt appears even with `--test-dotfiles`
+- **Current behavior**: User must type "skip" manually
+- **Analysis needed**: When do we want interactive vs non-interactive provisioning?
+
+**Question 2**: How should multi-VM workflow be documented?
+- **Use case**: 4-5 VMs, each working on one open source repo
+- **VM lifecycle**: Provision → use → destroy (ephemeral environments)
+- **Documentation needs**: Naming, provisioning, SSH access, isolation practices
+
+**Question 3**: What about project-templates integration?
+- **Current understanding**: project-templates used INSIDE VMs (manual copy after provision)
+- **Not needed**: Auto-provisioning of project-templates (use them ad-hoc)
+- **Workflow**: SSH into VM → copy template → start project
+
+---
+
+## 🔄 Multi-VM Workflow (Planned)
+
+Doctor Hubert's long-term setup:
+
+```
+work-vm-1 (192.168.122.XXX) → Clone & work on Repo A
+work-vm-2 (192.168.122.XXX) → Clone & work on Repo B
+work-vm-3 (192.168.122.XXX) → Clone & work on Repo C
+work-vm-4 (192.168.122.XXX) → Clone & work on Repo D
+work-vm-5 (192.168.122.XXX) → Clone & work on Repo E
 ```
 
-**Actual VM provisioning**:
-```bash
-./provision-vm.sh workspace-vm 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
-```
+**Each VM has:**
+- ✅ Base environment (dotfiles: zsh, starship, git, vim)
+- ✅ SSH access via `~/.ssh/vm_key`
+- ✅ Isolated from other VMs
+- ✅ Full dev tools (git, neovim, zsh-plugins, etc.)
 
-**Run pragma tests**:
-```bash
-./tests/test_pragma_allowlist.sh
-```
+**Workflow:**
+1. Provision VM: `SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-X 4096 2 --test-dotfiles /path`
+2. SSH into VM: `ssh -i ~/.ssh/vm_key mr@<IP>`
+3. Clone target repo: `git clone https://github.com/org/repo.git`
+4. Work on issues in isolation
+5. When done: `./destroy-vm.sh work-vm-X`
 
-**Check CI status**:
+**To use project-templates inside VM:**
 ```bash
-gh pr checks 104
+ssh -i ~/.ssh/vm_key mr@<VM_IP>
+cp -r ~/project-templates/python-project ~/my-new-project
+cd ~/my-new-project
+git init && git add . && git commit -m "Initial commit from template"
+# Start working!
 ```
 
 ---
 
-## 📊 Metrics
-
-**Effort**: ~7 hours total
-- Agent consultation: 1 hour
-- TDD implementation: 3 hours
-- Pattern refinement: 1 hour
-- CI fixes: 1 hour
-- Testing & validation: 1 hour
-
-**Lines of Code**:
-- Added: ~350 lines (tests + implementation)
-- Modified: ~15 lines (validation logic)
-- Removed: 1 line (overly-broad pattern)
-
-**Test Coverage**:
-- New tests: 9
-- Existing tests: 69 (all passing)
-- Total: 78 tests
-
----
-
-**Session completed**: 2025-11-11 21:18 UTC
-**Next session ready**: Awaiting Doctor Hubert review of PR #104
+**Session completed**: 2025-11-12
+**Next session focus**: --non-interactive flag analysis + multi-VM documentation
