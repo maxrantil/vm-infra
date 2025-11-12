@@ -1,9 +1,39 @@
 # Session Handoff: Local Dotfiles Testing & Multi-VM Infrastructure
 
 **Date**: 2025-11-12
-**Session Focus**: Implement `--test-dotfiles` flag + provision first persistent work VM
+**Session Focus**: 3 features implemented, committed, and merged to master
 **Branch**: master
-**Status**: ✅ Feature complete and committed (db46abc)
+**Status**: ✅ All PRs merged, ready for VM investigation
+
+---
+
+## 🎉 Session 2025-11-12C: PRs Merged Successfully ✅
+
+**All 3 features merged to master:**
+
+### PR #107: Auto-skip Deploy Key Prompt (Issue #106) ✅ MERGED
+- **Merged**: 2025-11-12
+- **Files**: provision-vm.sh, README.md
+- **Impact**: No more manual "skip" typing when using `--test-dotfiles`
+- **Link**: https://github.com/maxrantil/vm-infra/pull/107
+- **Issue**: https://github.com/maxrantil/vm-infra/issues/106 (CLOSED)
+
+### PR #109: TPM Installation Fix Phase 1 (Issue #108) ✅ MERGED
+- **Merged**: 2025-11-12
+- **Files**: ansible/playbook.yml
+- **Impact**: TPM now installs successfully without errors
+- **Link**: https://github.com/maxrantil/vm-infra/pull/109
+- **Issue**: https://github.com/maxrantil/vm-infra/issues/108 (CLOSED)
+
+### PR #111: Multi-VM Workflow Documentation (Issue #110) ✅ MERGED
+- **Merged**: 2025-11-12
+- **Files**: docs/MULTI-VM-WORKFLOW.md (636 lines, new file)
+- **Impact**: Comprehensive guide for managing 4-5 isolated work VMs
+- **Link**: https://github.com/maxrantil/vm-infra/pull/111
+- **Issue**: https://github.com/maxrantil/vm-infra/issues/110 (CLOSED)
+
+**Master branch status**: Clean, all features live
+**Next**: Investigate VM destruction behavior (Doctor Hubert's question)
 
 ---
 
@@ -114,64 +144,73 @@ Regular mode (no --test-dotfiles):
 
 ## 🚀 Next Session Priorities
 
-### Immediate Tasks
+### Immediate Investigation
 
-**1. Explore --non-interactive Flag** (Doctor Hubert's question)
-- **Context**: Deploy key prompt appears even when using `--test-dotfiles`
-- **Current workaround**: User types "skip" manually
-- **Options to explore**:
-  - Option A: `--non-interactive` flag to auto-skip deploy key prompt
-  - Option B: Smart detection (skip prompt when `--test-dotfiles` used)
-  - Option C: Separate the deploy key generation from the prompt
-- **Analysis needed**: When would we want interactive vs non-interactive?
+**1. VM Destruction Behavior** (Doctor Hubert's Question)
 
-**2. Document Multi-VM Workflow** (Doctor Hubert requested)
-- **Purpose**: Document how to manage 4-5 VMs for isolated open source work
-- **Content needed**:
-  - VM naming convention (work-vm-1, work-vm-2, etc.)
-  - How to provision multiple VMs
-  - How to SSH into specific VMs
-  - How to destroy VMs when done
-  - How to use project-templates inside VMs
-  - Best practices for VM isolation
-- **Location**: Create `docs/MULTI-VM-WORKFLOW.md` or add to README.md?
+**Context**: Doctor Hubert observed that VMs appear to be destroyed after creation, but mentioned last time he could still SSH into them.
 
-### Follow-Up Tasks
+**Questions to investigate**:
+1. **When/why are VMs being destroyed?**
+   - Is it happening automatically after provisioning?
+   - Is it only in test mode (work-vm-1 during validation)?
+   - Is there a timeout mechanism?
 
-**3. Provision Persistent work-vm-1**
-- Previous attempt auto-destroyed after deploy key timeout
-- Next session: provision and keep it running (type "skip" at prompt)
-- Test SSH access and verify dotfiles work
+2. **What is the expected behavior?**
+   - Should VMs persist after provisioning completes?
+   - Are we accidentally calling `destroy-vm.sh`?
+   - Is there cleanup logic in provision-vm.sh?
 
-**4. Fix TPM Installation**
-- **Issue**: `.gitconfig` rewrites HTTPS → SSH for all GitHub URLs
-- **Impact**: Public repos fail to clone (no deploy key for public repos)
-- **Solutions to explore**:
-  - Use `GIT_CONFIG_GLOBAL=/dev/null` when cloning TPM
-  - Clone TPM before dotfiles install (before `.gitconfig` applied)
-  - Fix `.gitconfig` to not rewrite public HTTPS URLs
-  - Make TPM optional/skippable
+3. **How to create persistent VMs?**
+   - What's the correct command for a long-lived work VM?
+   - How to verify a VM will persist?
+   - What's the lifecycle management pattern?
+
+**Investigation approach**:
+1. Review provision-vm.sh for any destruction/cleanup logic
+2. Check if there's auto-cleanup after timeouts
+3. Test creating a persistent work-vm (no destruction expected)
+4. Document the expected VM lifecycle patterns
+
+**Expected outcome**: Clear understanding of when VMs persist vs auto-destroy, and how to create persistent work VMs for Doctor Hubert's multi-VM workflow.
+
+### Completed (No Further Action Needed)
+
+**✅ Deploy Key Auto-skip** - Implemented via PR #107 (smart detection)
+**✅ TPM Installation Fix** - Implemented via PR #109 (Phase 1 workaround)
+**✅ Multi-VM Documentation** - Implemented via PR #111 (636-line guide)
+
+### Follow-Up Tasks (Phase 2 - Future)
+
+**2. TPM .gitconfig Fix (Phase 2)**
+- Create issue in dotfiles repository
+- Update dotfiles/.gitconfig to only rewrite user-owned repos
+- Test Phase 2 fix
+- Remove GIT_CONFIG_GLOBAL workaround from ansible/playbook.yml
 
 ---
 
 ## 📝 Startup Prompt for Next Session
 
-Read CLAUDE.md to understand our workflow, then continue VM infrastructure multi-VM workflow implementation.
+Read CLAUDE.md to understand our workflow, then investigate VM destruction behavior.
 
-**Previous session**: Local dotfiles testing feature complete (commit db46abc), work-vm-1 validated successfully
-**Context**: Doctor Hubert wants to run 4-5 isolated VMs for open source work (one repo per VM)
-**Reference docs**: SESSION_HANDOVER.md, lib/validation.sh:404-408, ansible/playbook.yml:228-250
-**Ready state**: Clean master branch, all tests passing, feature fully functional
+**Session completed**: 2025-11-12 - All 3 PRs merged successfully to master
+**Current state**: Master clean, all features live (smart detection, TPM fix, multi-VM docs)
+**Context**: Doctor Hubert noticed VMs seem to be destroyed after creation, wants to understand lifecycle
+**Reference docs**: SESSION_HANDOVER.md, provision-vm.sh, docs/MULTI-VM-WORKFLOW.md
+**Ready state**: Master up to date, all tests passing, ready for investigation
 
-**Immediate priorities**:
-1. Explore --non-interactive flag options (deploy key prompt even with --test-dotfiles)
-2. Document multi-VM workflow (how to manage 4-5 isolated work VMs)
-3. Provision persistent work-vm-1 for testing
+**Immediate priority**: Investigate VM destruction behavior (2-3 hours)
+1. When/why are VMs being destroyed after provisioning?
+2. Is it automatic cleanup, timeout, or manual?
+3. How to create persistent work VMs that stay running?
+4. Document VM lifecycle patterns clearly
 
 **Expected scope**:
-- Analyze --non-interactive flag pros/cons (when to use interactive vs non-interactive?)
-- Create multi-VM workflow documentation (VM naming, provisioning, SSH access, isolation best practices)
-- Provision and verify work-vm-1 stays persistent
+- Review provision-vm.sh for destruction/cleanup logic
+- Test creating persistent work-vm-1 (should not auto-destroy)
+- Document when VMs persist vs auto-cleanup
+- Provide clear guidance for Doctor Hubert's persistent multi-VM setup
 
 ---
 
