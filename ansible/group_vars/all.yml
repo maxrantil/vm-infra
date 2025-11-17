@@ -17,7 +17,7 @@
 
 # TEST MODE: Local dotfiles path (set via provision-vm.sh --test-dotfiles)
 # When testing dotfiles changes, use:
-#   ./provision-vm.sh test-vm --test-dotfiles /path/to/local/dotfiles
+#   ./provision-vm.sh test-vm testuser --test-dotfiles /path/to/local/dotfiles
 # This allows testing uncommitted changes without pushing to GitHub.
 # The playbook will automatically use file:// URL instead of GitHub.
 # This variable is set automatically via Terraform/inventory - do not set manually.

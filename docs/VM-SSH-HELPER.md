@@ -326,7 +326,7 @@ sudo virsh console work-vm-1
 ```bash
 # Provision VMs once
 for i in {1..5}; do
-    SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-$i 4096 2 \
+    SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-$i developer 4096 2 \
         --test-dotfiles /home/mqx/workspace/dotfiles
 done
 
