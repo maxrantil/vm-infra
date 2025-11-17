@@ -226,7 +226,7 @@ test_flag_parsing_no_flag() {
     export TEST_MODE=1
 
     # Run script WITHOUT --test-dotfiles flag
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1 || true)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser 2>&1 || true)
 
     # Verify behavior: script should show default GitHub dotfiles
     if echo "$output" | grep -q "Dotfiles: GitHub (default)"; then
@@ -248,7 +248,7 @@ test_flag_parsing_with_path() {
     export TEST_MODE=1
 
     # Run script with --test-dotfiles flag
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1 || true)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1 || true)
 
     # Verify behavior: script outputs that it's using local dotfiles
     if echo "$output" | grep -q "Dotfiles: $TEST_DOTFILES_DIR (local)"; then
@@ -269,7 +269,7 @@ test_flag_parsing_missing_argument() {
 
     # Run script with --test-dotfiles flag but no path (should fail)
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles 2>&1)
     local exit_code=$?
     set -e
 
@@ -293,7 +293,7 @@ test_flag_parsing_multiple_flags() {
     export TEST_MODE=1
 
     # Run script with flag BEFORE vm name
-    output=$("$SCRIPT_DIR/../provision-vm.sh" --test-dotfiles "$TEST_DOTFILES_DIR" custom-vm 2048 4 2>&1 || true)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" --test-dotfiles "$TEST_DOTFILES_DIR" custom-vm testuser 2048 4 2>&1 || true)
 
     # Verify behavior: VM name, memory, and vcpus are still parsed correctly
     if echo "$output" | grep -q "VM Name: custom-vm" &&
@@ -749,7 +749,7 @@ test_security_shell_injection_printable_check() {
     # Try to use an EXISTING path but with backslash in the argument
     # Backslash is a shell metacharacter that should be rejected
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR\\test" 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR\\test" 2>&1)
     local exit_code=$?
     set -e
 
@@ -777,7 +777,7 @@ test_security_toctou_canonical_path_validation() {
 
     # Try to use symlink (should be rejected by TOCTOU protection)
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_SYMLINK" 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_SYMLINK" 2>&1)
     local exit_code=$?
     set -e
 
@@ -844,7 +844,7 @@ test_security_git_shallow_clone_playbook() {
 
     # Run script - if it validates correctly, shallow clone config is present
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser 2>&1)
     local exit_code=$?
     set -e
 
@@ -869,11 +869,11 @@ test_security_git_shallow_clone_both_sources() {
 
     # Run script with local dotfiles
     set +e
-    output_local=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    output_local=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
     local exit_code_local=$?
 
     # Run script with remote dotfiles (default)
-    output_remote=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
+    output_remote=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser 2>&1)
     local exit_code_remote=$?
     set -e
 
@@ -905,7 +905,7 @@ test_security_recursive_symlink_detection() {
 
     # Try to use directory with symlinked file (should be rejected)
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
     local exit_code=$?
     set -e
 
@@ -964,7 +964,7 @@ EOF
 
     # Run with safe install.sh (should pass)
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
     local exit_code=$?
     set -e
 
@@ -1023,7 +1023,7 @@ EOF
 
     # Run with unsafe command, provide "n" to reject
     set +e
-    output=$(echo "n" | "$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    output=$(echo "n" | "$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
     local exit_code=$?
     set -e
 
@@ -1140,7 +1140,7 @@ EOF
 
     # Try to use dotfiles with world-writable install.sh (should be rejected)
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
     local exit_code=$?
     set -e
 
@@ -1195,7 +1195,7 @@ test_terraform_variable_passing() {
 
     # Run script with local dotfiles (TEST_MODE prevents actual terraform run)
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
     local exit_code=$?
     set -e
 
@@ -1217,7 +1217,7 @@ test_terraform_variable_empty_default() {
 
     # Run script without --test-dotfiles (should use GitHub default)
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser 2>&1)
     local exit_code=$?
     set -e
 
@@ -1255,6 +1255,7 @@ test_terraform_validation_rejects_relative_paths() {
     test_tfvars=$(mktemp)
     cat > "$test_tfvars" << EOF
 vm_name = "test-validation-vm"
+vm_username = "testuser"
 dotfiles_local_path = "relative/path/to/dotfiles"
 EOF
 
@@ -1299,6 +1300,7 @@ test_terraform_validation_accepts_absolute_paths() {
     test_tfvars=$(mktemp)
     cat > "$test_tfvars" << EOF
 vm_name = "test-validation-vm"
+vm_username = "testuser"
 dotfiles_local_path = "/absolute/path/to/dotfiles"
 EOF
 
@@ -1341,6 +1343,7 @@ test_terraform_validation_accepts_empty_path() {
     test_tfvars=$(mktemp)
     cat > "$test_tfvars" << EOF
 vm_name = "test-validation-vm"
+vm_username = "testuser"
 dotfiles_local_path = ""
 EOF
 
@@ -1378,7 +1381,7 @@ test_ansible_inventory_with_local_path() {
 
     # Run script with --test-dotfiles
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
     local exit_code=$?
     set -e
 
@@ -1399,7 +1402,7 @@ test_ansible_inventory_without_local_path() {
 
     # Run script without --test-dotfiles
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser 2>&1)
     local exit_code=$?
     set -e
 
@@ -1429,7 +1432,7 @@ test_ansible_playbook_uses_local_repo() {
 
     # Run script with --test-dotfiles
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
     local exit_code=$?
     set -e
 
@@ -1450,7 +1453,7 @@ test_ansible_playbook_uses_github_default() {
 
     # Run script without --test-dotfiles
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser 2>&1)
     local exit_code=$?
     set -e
 
@@ -1475,7 +1478,7 @@ test_ansible_whitespace_handling() {
 
     # Run script with valid dotfiles path
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
     local exit_code=$?
     set -e
 
@@ -1512,7 +1515,7 @@ EOF
 
     # Run with --dry-run flag (validates without creating VM)
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-e2e-vm --test-dotfiles "$test_dotfiles_dir" --dry-run 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-e2e-vm testuser --test-dotfiles "$test_dotfiles_dir" --dry-run 2>&1)
     local exit_code=$?
     set -e
 
@@ -1534,7 +1537,7 @@ test_e2e_dry_run_with_default_dotfiles() {
     local result="fail"
 
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-e2e-default --dry-run 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-e2e-default testuser --dry-run 2>&1)
     local exit_code=$?
     set -e
 
@@ -1563,7 +1566,7 @@ test_bug_008_rollback_mechanism() {
 
     # Try with invalid path (should fail validation before terraform)
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "/nonexistent/path" 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "/nonexistent/path" 2>&1)
     local exit_code=$?
     set -e
 
@@ -1590,7 +1593,7 @@ test_sec_007_cleanup_trap_exists() {
 
     # Run script successfully (trap should be registered but not triggered)
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
     local exit_code=$?
     set -e
 
@@ -1617,7 +1620,7 @@ test_sec_007_vm_created_tracking() {
 
     # In TEST_MODE, VM is never created, so VM_CREATED should remain false
     set +e
-    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
+    output=$("$SCRIPT_DIR/../provision-vm.sh" test-vm testuser --test-dotfiles "$TEST_DOTFILES_DIR" 2>&1)
     local exit_code=$?
     set -e
 

@@ -416,7 +416,58 @@ validate_install_sh() {
 }
 
 #####################################
-# SECTION 4: COMPOSITE VALIDATION
+# SECTION 4: USERNAME VALIDATION
+#####################################
+
+validate_username() {
+    local username="$1"
+
+    # Reserved usernames that should not be used
+    local reserved_names=(
+        "root" "daemon" "bin" "sys" "sync" "games" "man" "lp"
+        "mail" "news" "uucp" "proxy" "www-data" "backup" "list"
+        "irc" "gnats" "nobody" "systemd-network" "systemd-resolve"
+        "messagebus" "systemd-timesync" "syslog" "admin" "ubuntu"
+    )
+
+    # Check if username is empty
+    if [ -z "$username" ]; then
+        echo -e "${RED}[ERROR] Username cannot be empty${NC}" >&2
+        exit 1
+    fi
+
+    # Check length (1-32 characters per Linux conventions)
+    if [ ${#username} -gt 32 ]; then
+        echo -e "${RED}[ERROR] Username too long: $username (max 32 characters)${NC}" >&2
+        exit 1
+    fi
+
+    # Check for valid characters (lowercase letters, digits, underscore, hyphen)
+    # Must start with lowercase letter
+    if ! [[ "$username" =~ ^[a-z][a-z0-9_-]*$ ]]; then
+        echo -e "${RED}[ERROR] Invalid username: $username${NC}" >&2
+        echo "Username must:" >&2
+        echo "  - Start with a lowercase letter" >&2
+        echo "  - Contain only lowercase letters, digits, underscores, and hyphens" >&2
+        echo "  - Be 1-32 characters long" >&2
+        exit 1
+    fi
+
+    # Check reserved names
+    for reserved in "${reserved_names[@]}"; do
+        if [ "$username" = "$reserved" ]; then
+            echo -e "${RED}[ERROR] Reserved username: $username${NC}" >&2
+            echo "This username is reserved by the system and cannot be used." >&2
+            exit 1
+        fi
+    done
+
+    # All validations passed
+    return 0
+}
+
+#####################################
+# SECTION 5: COMPOSITE VALIDATION
 #####################################
 
 validate_and_prepare_dotfiles_path() {

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ABOUTME: One-command VM provisioning script using Terraform and Ansible
-# Usage: ./provision-vm.sh <vm-name> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]
+# Usage: ./provision-vm.sh <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]
 
 set -e
 
@@ -22,7 +22,7 @@ while [[ $# -gt 0 ]]; do
         --test-dotfiles)
             if [ -z "${2:-}" ]; then
                 echo -e "${RED}[ERROR] --test-dotfiles flag requires a path argument${NC}" >&2
-                echo "Usage: $0 <vm-name> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]" >&2
+                echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]" >&2
                 exit 1
             fi
             DOTFILES_LOCAL_PATH="$2"
@@ -34,7 +34,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         -*)
             echo -e "${RED}[ERROR] Unknown flag: $1${NC}" >&2
-            echo "Usage: $0 <vm-name> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]" >&2
+            echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]" >&2
             exit 1
             ;;
         *)
@@ -47,10 +47,41 @@ done
 # Restore positional args
 set -- "${POSITIONAL_ARGS[@]}"
 
-# Default values
-VM_NAME="${1:-dev-vm}"
-MEMORY="${2:-4096}"
-VCPUS="${3:-2}"
+# Require VM name and username
+if [ -z "${1:-}" ]; then
+    echo -e "${RED}[ERROR] Missing required argument: vm-name${NC}" >&2
+    echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]" >&2
+    echo "" >&2
+    echo "Example: $0 work-vm developer 4096 2" >&2
+    exit 1
+fi
+
+if [ -z "${2:-}" ]; then
+    echo -e "${RED}[ERROR] Missing required argument: username${NC}" >&2
+    echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]" >&2
+    echo "" >&2
+    echo "Example: $0 work-vm developer 4096 2" >&2
+    exit 1
+fi
+
+# Detect old usage format (backward compatibility)
+if [[ "${2:-}" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}[ERROR] Invalid usage detected. The signature has changed to include username.${NC}" >&2
+    echo "" >&2
+    echo "Old format: $0 $1 $2 ${3:-2}" >&2
+    echo "New format: $0 <vm-name> <username> [memory] [vcpus]" >&2
+    echo "" >&2
+    echo "Example: $0 $1 developer $2 ${3:-2}" >&2
+    echo "" >&2
+    echo "The username will be created in the VM and used for SSH access." >&2
+    exit 1
+fi
+
+# Assign values
+VM_NAME="$1"
+VM_USERNAME="$2"
+MEMORY="${3:-4096}"
+VCPUS="${4:-2}"
 
 # Directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -66,6 +97,9 @@ fi
 
 # shellcheck source=lib/validation.sh
 source "$SCRIPT_DIR/lib/validation.sh"
+
+# Validate username
+validate_username "$VM_USERNAME"
 
 # SEC-007: Rollback mechanism on failure (CVSS 5.0)
 VM_CREATED=false
@@ -98,6 +132,7 @@ echo -e "${GREEN}  VM Provisioning Script${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo "VM Name: $VM_NAME"
+echo "Username: $VM_USERNAME"
 echo "Memory: ${MEMORY}MB"
 echo "vCPUs: $VCPUS"
 if [ -n "$DOTFILES_LOCAL_PATH" ]; then
@@ -169,6 +204,7 @@ fi
 # Create VM (BUG-003: Proper quoting for paths with spaces)
 TERRAFORM_VARS=(
     -var="vm_name=$VM_NAME"
+    -var="vm_username=$VM_USERNAME"
     -var="memory=$MEMORY"
     -var="vcpus=$VCPUS"
 )
@@ -219,7 +255,7 @@ echo ""
 echo -e "${YELLOW}Step 2: Waiting for cloud-init to complete...${NC}"
 CLOUD_INIT_SUCCESS=false
 for _ in {1..90}; do
-    if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=2 mr@"$VM_IP" 'cloud-init status --wait' 2> /dev/null; then
+    if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=2 "$VM_USERNAME@$VM_IP" 'cloud-init status --wait' 2> /dev/null; then
         CLOUD_INIT_SUCCESS=true
         break
     fi
@@ -230,9 +266,9 @@ if [ "$CLOUD_INIT_SUCCESS" = false ]; then
     echo -e "${RED}[ERROR] cloud-init did not complete within 180 seconds${NC}" >&2
     echo "" >&2
     echo "VM may still be initializing. Manual steps:" >&2
-    echo "  1. Check VM status: ssh -i ~/.ssh/vm_key mr@$VM_IP 'cloud-init status'" >&2
-    echo "  2. View logs: ssh -i ~/.ssh/vm_key mr@$VM_IP 'cat /var/log/cloud-init.log'" >&2
-    echo "  3. Wait and retry: ./provision-vm.sh $VM_NAME $MEMORY $VCPUS" >&2
+    echo "  1. Check VM status: ssh -i ~/.ssh/vm_key $VM_USERNAME@$VM_IP 'cloud-init status'" >&2
+    echo "  2. View logs: ssh -i ~/.ssh/vm_key $VM_USERNAME@$VM_IP 'cat /var/log/cloud-init.log'" >&2
+    echo "  3. Wait and retry: ./provision-vm.sh $VM_NAME $VM_USERNAME $MEMORY $VCPUS" >&2
     exit 1
 fi
 
@@ -243,13 +279,13 @@ echo ""
 echo -e "${YELLOW}Step 3: Verifying SSH connectivity...${NC}"
 
 # Verify SSH connectivity before Ansible
-if ! ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=5 mr@"$VM_IP" 'echo ok' > /dev/null 2>&1; then
+if ! ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no -o ConnectTimeout=5 "$VM_USERNAME@$VM_IP" 'echo ok' > /dev/null 2>&1; then
     echo -e "${RED}[ERROR] Cannot connect to VM at $VM_IP${NC}" >&2
     echo "" >&2
     echo "SSH connectivity test failed. Troubleshooting:" >&2
     echo "  1. Verify VM is running: virsh list" >&2
-    echo "  2. Test SSH manually: ssh -i ~/.ssh/vm_key mr@$VM_IP" >&2
-    echo "  3. Check cloud-init: ssh -i ~/.ssh/vm_key mr@$VM_IP 'cloud-init status'" >&2
+    echo "  2. Test SSH manually: ssh -i ~/.ssh/vm_key $VM_USERNAME@$VM_IP" >&2
+    echo "  3. Check cloud-init: ssh -i ~/.ssh/vm_key $VM_USERNAME@$VM_IP 'cloud-init status'" >&2
     exit 1
 fi
 
@@ -264,7 +300,7 @@ if ! ansible-playbook -i inventory.ini playbook.yml; then
     echo "" >&2
     echo "VM is accessible but Ansible failed. Check:" >&2
     echo "  1. Ansible logs above for details" >&2
-    echo "  2. Manual connection: ssh -i ~/.ssh/vm_key mr@$VM_IP" >&2
+    echo "  2. Manual connection: ssh -i ~/.ssh/vm_key $VM_USERNAME@$VM_IP" >&2
     echo "  3. Retry: cd ansible && ansible-playbook -i inventory.ini playbook.yml" >&2
     exit 1
 fi
@@ -287,7 +323,7 @@ else
     echo ""
 
     # Extract deploy key from VM
-    DEPLOY_KEY=$(ssh -i ~/.ssh/vm_key mr@$VM_IP 'cat ~/.ssh/id_ed25519.pub' 2> /dev/null)
+    DEPLOY_KEY=$(ssh -i ~/.ssh/vm_key "$VM_USERNAME@$VM_IP" 'cat ~/.ssh/id_ed25519.pub' 2> /dev/null)
 
     if [ -n "$DEPLOY_KEY" ]; then
         echo "To complete dotfiles installation, add this deploy key to GitHub:"
@@ -323,7 +359,7 @@ else
         fi
     else
         echo -e "${RED}⚠ Could not retrieve deploy key from VM${NC}" >&2
-        echo "You can retrieve it manually: ssh -i ~/.ssh/vm_key mr@$VM_IP 'cat ~/.ssh/id_ed25519.pub'" >&2
+        echo "You can retrieve it manually: ssh -i ~/.ssh/vm_key $VM_USERNAME@$VM_IP 'cat ~/.ssh/id_ed25519.pub'" >&2
     fi
 fi
 
@@ -333,8 +369,9 @@ echo -e "${GREEN}  ✓ VM Provisioning Complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo "VM Name: $VM_NAME"
+echo "Username: $VM_USERNAME"
 echo "IP Address: $VM_IP"
-echo "SSH Access: ssh -i ~/.ssh/vm_key mr@$VM_IP"
+echo "SSH Access: ssh -i ~/.ssh/vm_key $VM_USERNAME@$VM_IP"
 echo ""
 echo "Installed:"
 echo "  - zsh (with starship prompt)"

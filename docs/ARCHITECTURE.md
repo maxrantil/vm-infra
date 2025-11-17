@@ -205,16 +205,16 @@ VCPUS="${3:-2}"
 
 ```bash
 # Flag before positional args
-./provision-vm.sh --test-dotfiles /path/to/dotfiles my-vm 4096 2
+./provision-vm.sh --test-dotfiles /path/to/dotfiles my-vm developer 4096 2
 
 # Flag after positional args
-./provision-vm.sh my-vm 4096 2 --test-dotfiles /path/to/dotfiles
+./provision-vm.sh my-vm developer 4096 2 --test-dotfiles /path/to/dotfiles
 
 # Multiple flags
-./provision-vm.sh --test-dotfiles /path --dry-run my-vm
+./provision-vm.sh --test-dotfiles /path --dry-run my-vm developer
 
 # Default behavior (no flag)
-./provision-vm.sh my-vm
+./provision-vm.sh my-vm developer
 ```
 
 ---

@@ -19,6 +19,16 @@ variable "vm_name" {
   type        = string
 }
 
+variable "vm_username" {
+  description = "Username to create in the VM"
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9_-]{0,31}$", var.vm_username))
+    error_message = "Username must start with a lowercase letter and contain only lowercase letters, digits, underscores, and hyphens (max 32 characters)"
+  }
+}
+
 variable "memory" {
   description = "Memory in MB"
   type        = number
@@ -100,13 +110,14 @@ locals {
 # Step 1: Execute bash script to generate cloud-init ISO
 resource "null_resource" "cloudinit_iso" {
   provisioner "local-exec" {
-    command = "sudo ${path.module}/create-cloudinit-iso.sh '${var.vm_name}' '${local.ssh_key}'"
+    command = "sudo ${path.module}/create-cloudinit-iso.sh '${var.vm_name}' '${var.vm_username}' '${local.ssh_key}'"
   }
 
-  # Recreate ISO if VM name or SSH key changes
+  # Recreate ISO if VM name, username, or SSH key changes
   triggers = {
-    vm_name = var.vm_name
-    ssh_key = local.ssh_key
+    vm_name     = var.vm_name
+    vm_username = var.vm_username
+    ssh_key     = local.ssh_key
   }
 }
 
@@ -166,7 +177,7 @@ output "vm_ip" {
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/inventory.tpl", {
     vm_ip               = length(libvirt_domain.vm.network_interface[0].addresses) > 0 ? libvirt_domain.vm.network_interface[0].addresses[0] : ""
-    vm_user             = "mr"
+    vm_user             = var.vm_username
     vm_name             = var.vm_name
     dotfiles_local_path = var.dotfiles_local_path
   })

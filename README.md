@@ -44,10 +44,10 @@ cd vm-infra
 ssh-keygen -t ed25519 -f ~/.ssh/vm_key -C "vm-access"
 
 # Provision a VM
-./provision-vm.sh my-vm-name
+./provision-vm.sh my-vm-name developer
 
 # Or with custom resources
-./provision-vm.sh my-vm 8192 4  # 8GB RAM, 4 vCPUs
+./provision-vm.sh my-vm developer 8192 4  # VM name, username, 8GB RAM, 4 vCPUs
 ```
 
 ### Multi-VM Provisioning
@@ -56,9 +56,9 @@ Provision and manage multiple VMs in the same environment:
 
 ```bash
 # Provision multiple VMs
-./provision-vm.sh web-vm 4096 2
-./provision-vm.sh db-vm 8192 4
-./provision-vm.sh cache-vm 2048 1
+./provision-vm.sh web-vm developer 4096 2
+./provision-vm.sh db-vm developer 8192 4
+./provision-vm.sh cache-vm developer 2048 1
 
 # All VMs are now in the shared inventory
 cat ansible/inventory.ini
@@ -200,10 +200,10 @@ cd ../dotfiles
 
 # 2. Test in fresh VM without committing/pushing
 cd ../vm-infra
-./provision-vm.sh test-vm --test-dotfiles ../dotfiles
+./provision-vm.sh test-vm testuser --test-dotfiles ../dotfiles
 
 # 3. SSH and validate changes
-ssh -i ~/.ssh/vm_key mr@<VM_IP>
+ssh -i ~/.ssh/vm_key testuser@<VM_IP>
 # ... test your changes ...
 
 # 4. Destroy VM when done
@@ -244,16 +244,16 @@ The `--test-dotfiles` flag includes automatic security checks:
 
 ```bash
 # Test with relative path
-./provision-vm.sh test-vm --test-dotfiles ../dotfiles
+./provision-vm.sh test-vm testuser --test-dotfiles ../dotfiles
 
 # Test with absolute path
-./provision-vm.sh test-vm --test-dotfiles /home/user/dotfiles
+./provision-vm.sh test-vm testuser --test-dotfiles /home/user/dotfiles
 
 # Test with path containing spaces
-./provision-vm.sh test-vm --test-dotfiles "/home/user/my dotfiles"
+./provision-vm.sh test-vm testuser --test-dotfiles "/home/user/my dotfiles"
 
 # Normal provisioning (uses GitHub)
-./provision-vm.sh prod-vm
+./provision-vm.sh prod-vm developer
 ```
 
 ## Deploy Key Setup
@@ -270,7 +270,7 @@ VMs use repository-specific deploy keys instead of copying your personal SSH key
 When using `--test-dotfiles` with local dotfiles, the deploy key prompt is **automatically skipped** since GitHub access is not needed (dotfiles are copied directly from your host machine):
 
 ```bash
-./provision-vm.sh test-vm --test-dotfiles ../dotfiles
+./provision-vm.sh test-vm testuser --test-dotfiles ../dotfiles
 # ... provisioning happens ...
 # Deploy key setup automatically skipped (no manual interaction needed)
 ```
@@ -282,7 +282,7 @@ This smart detection eliminates unnecessary manual steps when testing local dotf
 The provision script includes an **interactive deploy key setup** that pauses after Ansible runs:
 
 ```bash
-./provision-vm.sh my-vm
+./provision-vm.sh my-vm developer
 # ... provisioning happens ...
 # Script will pause and display:
 

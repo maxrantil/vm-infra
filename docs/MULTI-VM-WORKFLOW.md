@@ -67,11 +67,11 @@ Provision VMs one at a time (recommended for first-time setup):
 
 ```bash
 # Provision 5 work VMs with local dotfiles testing
-SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-1 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
-SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-2 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
-SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-3 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
-SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-4 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
-SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-5 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
+SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-1 developer 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
+SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-2 developer 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
+SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-3 developer 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
+SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-4 developer 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
+SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-5 developer 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
 ```
 
 **Note**: Deploy key prompt is automatically skipped when using `--test-dotfiles` (smart detection).
@@ -82,13 +82,13 @@ Adjust memory and vCPUs based on project needs:
 
 ```bash
 # Light projects (documentation, scripts)
-./provision-vm.sh light-vm 2048 1
+./provision-vm.sh light-vm developer 2048 1
 
 # Standard projects (web apps, CLI tools)
-./provision-vm.sh standard-vm 4096 2
+./provision-vm.sh standard-vm developer 4096 2
 
 # Heavy projects (databases, compilers)
-./provision-vm.sh heavy-vm 8192 4
+./provision-vm.sh heavy-vm developer 8192 4
 ```
 
 ### Parallel Provisioning (Advanced)
@@ -98,7 +98,7 @@ For experienced users, provision multiple VMs in parallel:
 ```bash
 # Background provisioning (use with caution)
 for i in {1..5}; do
-    SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-$i 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles &
+    SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-$i developer 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles &
 done
 
 # Wait for all to complete
@@ -124,10 +124,10 @@ Each VM gets a unique IP address. Access via:
 
 ```bash
 # Basic SSH access
-ssh -i ~/.ssh/vm_key mr@<VM_IP>
+ssh -i ~/.ssh/vm_key developer@<VM_IP>
 
 # Example: work-vm-1 at 192.168.122.188
-ssh -i ~/.ssh/vm_key mr@192.168.122.188
+ssh -i ~/.ssh/vm_key developer@192.168.122.188
 ```
 
 ### Get VM IP Address
@@ -255,7 +255,7 @@ grep work-vm ansible/inventory.ini
 **Pattern**:
 ```bash
 # SSH into VM
-ssh -i ~/.ssh/vm_key mr@<work-vm-1-ip>
+ssh -i ~/.ssh/vm_key developer@<work-vm-1-ip>
 
 # Clone single repository
 git clone https://github.com/org/repo.git
@@ -348,7 +348,7 @@ done
 ```bash
 # Issue with work-vm-2, nuke and recreate
 ./destroy-vm.sh work-vm-2
-SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-2 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
+SKIP_WHITELIST_CHECK=1 ./provision-vm.sh work-vm-2 developer 4096 2 --test-dotfiles /home/mqx/workspace/dotfiles
 
 # Other VMs (work-vm-1, work-vm-3, work-vm-4, work-vm-5) unaffected
 ```
@@ -467,7 +467,7 @@ ls -la ~/.ssh/vm_key
 # Should be 600
 
 # 5. Check SSH service in VM
-ssh -i ~/.ssh/vm_key mr@<VM_IP> 'sudo systemctl status sshd'
+ssh -i ~/.ssh/vm_key developer@<VM_IP> 'sudo systemctl status sshd'
 ```
 
 ### Merged Inventory Out of Sync
@@ -591,7 +591,7 @@ echo ""
 echo "Access VMs:"
 for i in $(seq 1 $VM_COUNT); do
     VM_IP=$(grep "work-vm-$i " ansible/inventory.ini | awk '{print $2}' | cut -d'=' -f2)
-    echo "  work-vm-$i: ssh -i ~/.ssh/vm_key mr@$VM_IP"
+    echo "  work-vm-$i: ssh -i ~/.ssh/vm_key developer@$VM_IP"
 done
 ```
 
@@ -614,7 +614,7 @@ chmod +x provision-work-vms.sh
 - ✅ Use `--test-dotfiles` for streamlined provisioning (auto-skips deploy key prompt)
 
 **Next Steps**:
-1. Provision your first work VM: `./provision-vm.sh work-vm-1 4096 2 --test-dotfiles /path`
-2. SSH into it: `ssh -i ~/.ssh/vm_key mr@<IP>`
+1. Provision your first work VM: `./provision-vm.sh work-vm-1 developer 4096 2 --test-dotfiles /path`
+2. SSH into it: `ssh -i ~/.ssh/vm_key developer@<IP>`
 3. Clone your target repository
 4. Start working on issues in isolation!

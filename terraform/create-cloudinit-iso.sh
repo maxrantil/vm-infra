@@ -4,10 +4,11 @@
 set -e
 
 VM_NAME="$1"
-SSH_KEY="$2"
+VM_USERNAME="$2"
+SSH_KEY="$3"
 
-if [ -z "$VM_NAME" ] || [ -z "$SSH_KEY" ]; then
-    echo "Usage: $0 <vm-name> <ssh-public-key>" >&2
+if [ -z "$VM_NAME" ] || [ -z "$VM_USERNAME" ] || [ -z "$SSH_KEY" ]; then
+    echo "Usage: $0 <vm-name> <username> <ssh-public-key>" >&2
     exit 1
 fi
 
@@ -39,8 +40,60 @@ validate_ssh_key() {
     return 0
 }
 
+# Validate username
+validate_username() {
+    local username="$1"
+
+    # Reserved usernames
+    local reserved_names=(
+        "root" "daemon" "bin" "sys" "sync" "games" "man" "lp"
+        "mail" "news" "uucp" "proxy" "www-data" "backup" "list"
+        "irc" "gnats" "nobody" "systemd-network" "systemd-resolve"
+        "messagebus" "systemd-timesync" "syslog" "admin" "ubuntu"
+    )
+
+    # Check if username is empty
+    if [ -z "$username" ]; then
+        echo "ERROR: Username cannot be empty" >&2
+        return 1
+    fi
+
+    # Check length (1-32 characters)
+    if [ ${#username} -gt 32 ]; then
+        echo "ERROR: Username too long: $username (max 32 characters)" >&2
+        return 1
+    fi
+
+    # Check for valid characters (lowercase letters, digits, underscore, hyphen)
+    # Must start with lowercase letter
+    if ! [[ "$username" =~ ^[a-z][a-z0-9_-]*$ ]]; then
+        echo "ERROR: Invalid username: $username" >&2
+        echo "Username must:" >&2
+        echo "  - Start with a lowercase letter" >&2
+        echo "  - Contain only lowercase letters, digits, underscores, and hyphens" >&2
+        echo "  - Be 1-32 characters long" >&2
+        return 1
+    fi
+
+    # Check reserved names
+    for reserved in "${reserved_names[@]}"; do
+        if [ "$username" = "$reserved" ]; then
+            echo "ERROR: Reserved username: $username" >&2
+            echo "This username is reserved by the system and cannot be used." >&2
+            return 1
+        fi
+    done
+
+    return 0
+}
+
 # Validate SSH key before proceeding
 if ! validate_ssh_key "$SSH_KEY"; then
+    exit 1
+fi
+
+# Validate username before proceeding
+if ! validate_username "$VM_USERNAME"; then
     exit 1
 fi
 
@@ -69,12 +122,12 @@ datasource:
   NoCloud:
     seedfrom: /dev/sr0  # Cloud-init ISO device
 
-hostname: ubuntu-vm
-fqdn: ubuntu-vm.local
+hostname: HOSTNAME_PLACEHOLDER
+fqdn: HOSTNAME_PLACEHOLDER.local
 
 # Create user
 users:
-  - name: mr
+  - name: USERNAME_PLACEHOLDER
     sudo: ALL=(ALL) NOPASSWD:ALL
     groups: sudo
     shell: /bin/bash
@@ -89,8 +142,10 @@ ssh_pwauth: false
 disable_root: true
 EOF
 
-# HRI-001 FIX: Use sed to safely substitute SSH key (prevents command injection)
+# HRI-001 FIX: Use sed to safely substitute values (prevents command injection)
 sed -i "s|SSH_KEY_PLACEHOLDER|$SSH_KEY|g" "$TEMP_DIR/user-data"
+sed -i "s|USERNAME_PLACEHOLDER|$VM_USERNAME|g" "$TEMP_DIR/user-data"
+sed -i "s|HOSTNAME_PLACEHOLDER|$VM_NAME|g" "$TEMP_DIR/user-data"
 
 # Create meta-data with quoted heredoc
 cat > "$TEMP_DIR/meta-data" << 'EOF'
