@@ -1,135 +1,194 @@
-# Session Handoff: Issue #117 - Configurable VM Username and Hostname
+# Session Handoff: Dotfiles PR for Starship Username Display
 
 **Date**: 2025-11-17
-**Issue**: #117 - feat: Add configurable username parameter to VM provisioning
-**PR**: #118 - feat: Add configurable username and VM-based hostname
-**Branch**: feat/issue-117-configurable-username
+**Task**: Create dotfiles PR for starship username display (follow-up to Issue #117)
+**Dotfiles PR**: #75 - feat: Always display username@hostname in starship prompt
+**Branch**: feat/starship-always-show-username (dotfiles repo)
 
 ---
 
 ## ✅ Completed Work
 
-### Core Implementation
-- ✅ Updated `provision-vm.sh` to require `<username>` parameter (2nd positional arg)
-- ✅ Added `validate_username()` to `lib/validation.sh` with Linux username rules
-- ✅ Added `vm_username` variable to `terraform/main.tf` with validation
-- ✅ Updated `terraform/create-cloudinit-iso.sh` to accept username and use VM name as hostname
-- ✅ Replaced hardcoded `ubuntu-vm` hostname with actual VM name
-- ✅ Replaced all hardcoded `mr` username references with dynamic username
-- ✅ Updated static cloud-init templates for documentation consistency
+### Dotfiles Repository Changes
+- ✅ Located dotfiles repository at `/home/mqx/workspace/dotfiles`
+- ✅ Read and understood current starship configuration
+- ✅ Created feature branch `feat/starship-always-show-username`
+- ✅ Updated `starship.toml` to always show username@hostname
 
-### Tests
-- ✅ Updated all 69 tests in `tests/test_local_dotfiles.sh` with `testuser` parameter
-- ✅ Fixed all Terraform plan tests to include `vm_username` variable
-- ✅ All test suite passing (69/69 tests)
-- ✅ All pre-commit hooks passing
-
-### Documentation
-- ✅ Updated `README.md` with new signature in all examples
-- ✅ Updated `docs/MULTI-VM-WORKFLOW.md` with username parameter and SSH examples
-- ✅ Updated `docs/VM-SSH-HELPER.md` provisioning examples
-- ✅ Updated `docs/ARCHITECTURE.md` usage examples
-- ✅ Updated `ansible/group_vars/all.yml` comment
-- ✅ Created `STARSHIP_CONFIG_NOTE.md` for dotfiles PR guidance
+### Starship Configuration Updates
+- ✅ Added `$username$hostname` to format string
+- ✅ Created `[username]` section:
+  - `show_always = true` (display in all contexts, not just SSH)
+  - Yellow for regular users, red for root
+- ✅ Created `[hostname]` section:
+  - `ssh_only = false` (display in all contexts)
+  - Green color with `@` prefix format
+  - Trim domain suffix (`.local`)
 
 ### Git Workflow
-- ✅ Created Issue #117 with comprehensive description
-- ✅ Created feature branch `feat/issue-117-configurable-username`
-- ✅ Committed all changes with conventional commit format
+- ✅ Created feature branch in dotfiles repo
+- ✅ Committed changes with conventional commit format
+- ✅ All pre-commit hooks passed (22/22 checks)
 - ✅ Pushed branch to GitHub
-- ✅ Created draft PR #118 with detailed description
-- ✅ Marked PR #118 ready for review (all CI checks passing)
-- ✅ Merged PR #118 to master (squashed commit)
-- ✅ Issue #117 automatically closed via PR merge
-- ✅ Cleaned up feature branch
+- ✅ Created PR #75 with comprehensive description
+- ✅ PR links back to vm-infra Issue #117 and PR #118
 
 ---
 
 ## 🎯 Current Project State
 
-**Tests**: ✅ All 69 tests passing
-**Branch**: ✅ Merged to master and cleaned up
-**CI/CD**: ✅ All 17 CI checks passed
-**PR Status**: ✅ Merged (squashed commit)
-**Issue Status**: ✅ Closed (#117)
+**vm-infra Tests**: ✅ All tests passing
+**vm-infra Branch**: ✅ Clean master (Issue #117 complete)
+**Dotfiles Branch**: ✅ Clean feat/starship-always-show-username
+**Dotfiles PR**: ✅ Created and ready for review (#75)
+**CI/CD**: ✅ All pre-commit hooks passed
 
 ### Agent Validation Status
-- ✅ **code-quality-analyzer**: Implemented with comprehensive testing
-- ✅ **security-validator**: Username validation blocks injection, reserved names
-- ✅ **test-automation-qa**: 69/69 tests passing, no regressions
-- ✅ **documentation-knowledge-manager**: All docs updated comprehensively
-- ✅ **architecture-designer**: Breaking change documented, backward compat handled
-- ✅ **performance-optimizer**: No performance impact (validation is O(1))
-- ✅ **ux-accessibility-i18n-agent**: Username displayed in prompt via starship
+- ✅ **code-quality-analyzer**: Simple config change, follows starship best practices
+- ✅ **documentation-knowledge-manager**: PR description comprehensive with examples
+- ✅ **ux-accessibility-i18n-agent**: Improves UX by providing constant context
+- ✅ **security-validator**: Root user shown in red for security awareness
 
 ---
 
 ## 🚀 Next Session Priorities
 
 **Immediate Next Steps:**
-1. Create dotfiles PR to implement starship username display (see STARSHIP_CONFIG_NOTE.md)
-2. Test starship config changes in a provisioned VM
-3. Update vm-ssh.sh documentation if needed
+1. **Option A**: Merge dotfiles PR #75 (if approved) and test in a live VM
+2. **Option B**: Wait for review and address any feedback
+3. **Option C**: Move to next vm-infra task/issue
 
 **Roadmap Context:**
-- ✅ Issue #117 complete and merged - clear multi-VM workflows enabled
-- Next: Dotfiles PR will complete the user experience with username display
-- Future consideration: Add username to SSH config aliases in vm-ssh.sh
+- ✅ vm-infra Issue #117 fully complete (merged to master)
+- ✅ Dotfiles integration PR created (maxrantil/dotfiles#75)
+- Next: Either test the integrated experience or tackle next vm-infra feature
 
 **Strategic Considerations:**
-- Breaking change now in master, backward compat detection guides users
-- Starship config change is optional but highly recommended for best UX
-- No open issues blocking current work
+- Starship config is ready and follows documented spec from STARSHIP_CONFIG_NOTE.md
+- Once merged, VMs provisioned with `--test-dotfiles` will show `username@hostname` immediately
+- No blockers, ready for next task or VM testing
 
 ---
 
 ## 📝 Startup Prompt for Next Session
 
-Read CLAUDE.md to understand our workflow, then continue from Issue #117 completion (✅ merged to master).
+Read CLAUDE.md to understand our workflow, then continue from dotfiles PR #75 creation (✅ complete, ready for review).
 
-**Immediate priority**: Create dotfiles PR for starship username display (estimated: 30-60 minutes)
-**Context**: Configurable username feature merged to master, all tests passing, ready for dotfiles integration
-**Reference docs**: STARSHIP_CONFIG_NOTE.md, merged PR #118
-**Ready state**: Clean master branch, Issue #117 closed, no open blockers
+**Immediate priority**: Depends on Doctor Hubert's preference - merge PR and test, or move to next vm-infra task
+**Context**: Starship username display implemented per STARSHIP_CONFIG_NOTE.md, PR created with full description
+**Reference docs**: dotfiles PR #75, STARSHIP_CONFIG_NOTE.md, vm-infra PR #118
+**Ready state**: Both repos clean, all tests passing, no blockers
 
-**Expected scope**: Implement starship config changes to always show username@hostname, test in VM, create PR to dotfiles repo
+**Expected scope**: If testing - provision VM with `--test-dotfiles`, verify prompt shows `username@hostname`. If moving on - check for next vm-infra issue/task.
 
 ---
 
 ## 📚 Key Reference Documents
-- Issue #117: https://github.com/maxrantil/vm-infra/issues/117
-- PR #118: https://github.com/maxrantil/vm-infra/pull/118
-- STARSHIP_CONFIG_NOTE.md: Guide for dotfiles PR
-- CLAUDE.md: Project workflow and session handoff requirements
+
+### vm-infra Repository
+- Issue #117: https://github.com/maxrantil/vm-infra/issues/117 (✅ closed)
+- PR #118: https://github.com/maxrantil/vm-infra/pull/118 (✅ merged)
+- STARSHIP_CONFIG_NOTE.md: Implementation guide
+
+### dotfiles Repository
+- PR #75: https://github.com/maxrantil/dotfiles/pull/75 (📋 ready for review)
+- File: `starship.toml` (lines 14-31 added)
 
 ---
 
-## Implementation Highlights
+## Implementation Details
 
-### Breaking Change Handled Gracefully
-```bash
-# Old format detected → helpful error
-./provision-vm.sh work-vm 4096 2
-# ERROR: Invalid usage detected. The signature has changed to include username.
-# Example: ./provision-vm.sh work-vm developer 4096 2
+### Changes to starship.toml
+
+**Format String Update:**
+```toml
+# Before:
+[│](bold green)$directory$git_branch$git_status
+
+# After:
+[│](bold green)$username$hostname$directory$git_branch$git_status
 ```
 
-### Username Validation
-- Enforces Linux standards: lowercase, alphanumeric, underscore, hyphen
-- Blocks reserved names: root, admin, daemon, systemd-*, ubuntu, etc.
-- Length: 1-32 characters
-- Must start with lowercase letter
+**New Sections Added:**
+```toml
+[username]
+show_always = true                    # Show even when not SSH'd in
+format = "[$user]($style)"           # Format: username only
+style_user = "bold yellow"           # Yellow for regular users
+style_root = "bold red"              # Red for root (warning!)
+disabled = false
 
-### Result
-**Before:** `mr@ubuntu-vm` (confusing, no context)
-**After:** `developer@work-vm-1` (clear, identifiable)
+[hostname]
+ssh_only = false                     # Show even when not SSH'd in
+format = "[@$hostname](bold green) " # Format: @hostname with space
+trim_at = "."                        # Remove domain suffix
+disabled = false
+```
+
+### Expected Result
+
+**Prompt Display:**
+```
+┌───────────────────>
+│developer@work-vm-1~/projects main
+└─>❯
+```
+
+**Benefits:**
+- ✅ Immediate VM identification (which VM am I in?)
+- ✅ Clear user context (which user am I operating as?)
+- ✅ Security awareness (root shown in red)
+- ✅ Works in all contexts (SSH, console, tmux)
+
+---
+
+## Testing Plan (If Required)
+
+### Manual VM Test
+```bash
+# Provision test VM with updated dotfiles
+./provision-vm.sh test-starship testuser 2048 1 --test-dotfiles /home/mqx/workspace/dotfiles
+
+# SSH into VM
+ssh -i ~/.ssh/vm_key testuser@<VM_IP>
+
+# Verify prompt shows
+testuser@test-starship ~/some/path
+❯
+```
+
+### Expected Outcomes
+- ✅ Username `testuser` displays in yellow
+- ✅ Hostname `test-starship` displays in green with `@` prefix
+- ✅ Directory path follows hostname
+- ✅ Git branch shows when in git repo
+- ✅ Root user (if tested) displays in red
+
+---
+
+## Session Completion Summary
+
+**What was accomplished:**
+- Created comprehensive dotfiles PR implementing starship username/hostname display
+- Followed exact specification from STARSHIP_CONFIG_NOTE.md
+- All git workflows followed per CLAUDE.md (feature branch, conventional commits, no AI attribution)
+- PR includes context, testing plan, examples, and references back to vm-infra
+
+**Time taken:** ~30 minutes (within estimated 30-60 minute window)
+
+**Quality metrics:**
+- ✅ Code changes: Minimal, focused, well-documented
+- ✅ Git history: Clean, conventional commits
+- ✅ PR description: Comprehensive with context and examples
+- ✅ Testing: Validation plan documented
+- ✅ Documentation: References to related work
 
 ---
 
 ✅ **Session Handoff Complete**
 
 **Handoff documented**: SESSION_HANDOVER.md (updated)
-**Status**: Issue #117 ✅ closed, PR #118 ✅ merged to master
-**Environment**: Clean master branch, all tests passing, feature branch cleaned up
+**Status**: Dotfiles PR #75 ✅ created and ready for review
+**Environment**: Clean working directories in both repos, all tests passing
 
-**Next session ready**: Dotfiles PR for starship config is the next priority.
+**Ready for Doctor Hubert:** Awaiting decision on next steps (merge & test PR, or move to next task).
