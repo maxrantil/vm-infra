@@ -160,6 +160,25 @@
           args:
             creates: /usr/local/bin/starship
 
+        # Install LibreWolf browser for VMs
+        - name: Download LibreWolf GPG key
+          get_url:
+            url: https://deb.librewolf.net/keyring.gpg
+            dest: /usr/share/keyrings/librewolf.gpg
+            mode: '0644'
+
+        - name: Add LibreWolf repository
+          apt_repository:
+            repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/librewolf.gpg] https://deb.librewolf.net jammy main"
+            filename: librewolf
+            state: present
+
+        - name: Install LibreWolf
+          apt:
+            name: librewolf
+            state: present
+            update_cache: yes
+
         - name: Change default shell to zsh for user
           user:
             name: "{{ ansible_user }}"
