@@ -161,23 +161,27 @@
             creates: /usr/local/bin/starship
 
         # Install LibreWolf browser for VMs
-        - name: Download LibreWolf GPG key
-          get_url:
-            url: https://deb.librewolf.net/keyring.gpg
-            dest: /usr/share/keyrings/librewolf.gpg
-            mode: '0644'
-
-        - name: Add LibreWolf repository
-          apt_repository:
-            repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/librewolf.gpg] https://deb.librewolf.net jammy main"
-            filename: librewolf
+        # Updated method: LibreWolf now uses extrepo instead of manual GPG keys
+        # Reference: https://librewolf.net/installation/debian/
+        - name: Install extrepo package
+          apt:
+            name: extrepo
             state: present
+            update_cache: yes
 
-        - name: Install LibreWolf
+        - name: Enable LibreWolf repository via extrepo
+          command: extrepo enable librewolf
+          args:
+            creates: /etc/apt/sources.list.d/extrepo_librewolf.sources
+
+        - name: Update apt cache after adding LibreWolf repository
+          apt:
+            update_cache: yes
+
+        - name: Install LibreWolf browser
           apt:
             name: librewolf
             state: present
-            update_cache: yes
 
         - name: Change default shell to zsh for user
           user:
