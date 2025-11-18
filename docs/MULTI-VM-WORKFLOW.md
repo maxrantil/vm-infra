@@ -61,6 +61,22 @@ sandbox-vm               # Experimental work
 
 ## Provisioning Multiple VMs
 
+**Multi-VM Support**: As of 2025-11-18, the provisioning system uses **Terraform Workspaces** to enable multiple VMs to coexist without destroying each other. Each VM gets its own isolated Terraform state.
+
+### How It Works
+
+When you run `./provision-vm.sh <vm-name> ...`, the script automatically:
+1. Creates or selects a Terraform workspace named `<vm-name>`
+2. Provisions the VM in that isolated workspace
+3. Existing VMs in other workspaces remain untouched
+
+**Example**:
+```bash
+./provision-vm.sh vm1 user1 4096 2  # Creates 'vm1' workspace, provisions VM
+./provision-vm.sh vm2 user2 4096 2  # Creates 'vm2' workspace, provisions VM
+# Both vm1 and vm2 now coexist!
+```
+
 ### Sequential Provisioning
 
 Provision VMs one at a time (recommended for first-time setup):
@@ -133,8 +149,9 @@ ssh -i ~/.ssh/vm_key developer@192.168.122.188
 ### Get VM IP Address
 
 ```bash
-# Method 1: From Terraform output
+# Method 1: From Terraform output (select workspace first)
 cd terraform
+terraform workspace select work-vm-1
 terraform output vm_ip
 
 # Method 2: From virsh
@@ -143,6 +160,26 @@ virsh domifaddr work-vm-1
 # Method 3: From merged inventory
 grep work-vm-1 ansible/inventory.ini
 ```
+
+### Managing Terraform Workspaces
+
+Each VM has its own Terraform workspace for state isolation:
+
+```bash
+# List all workspaces (shows all VMs)
+cd terraform && terraform workspace list
+
+# Select a specific VM's workspace
+terraform workspace select work-vm-2
+
+# View VM's Terraform state
+terraform show
+
+# Check which workspace you're in
+terraform workspace show
+```
+
+**Important**: Always ensure you're in the correct workspace before running Terraform commands!
 
 ### SSH Config for Easy Access
 
@@ -222,15 +259,35 @@ virsh start work-vm-1
 
 ### Destroy Individual VMs
 
-```bash
-# Destroy single VM (other VMs unaffected)
-./destroy-vm.sh work-vm-1
+The `destroy-vm.sh` script handles workspace cleanup automatically:
 
-# Manual destruction
-virsh destroy work-vm-1
-virsh undefine work-vm-1
-sudo virsh vol-delete work-vm-1.qcow2 default
-sudo virsh vol-delete work-vm-1-cloudinit.iso default
+```bash
+# Destroy single VM (workspace-aware, other VMs unaffected)
+./destroy-vm.sh work-vm-1
+```
+
+**What happens**:
+1. Selects the `work-vm-1` Terraform workspace
+2. Destroys all resources in that workspace
+3. Deletes the `work-vm-1` workspace
+4. Removes the inventory fragment
+5. Other VMs (work-vm-2, work-vm-3, etc.) remain completely untouched
+
+**Manual destruction** (if needed):
+```bash
+# Switch to VM's workspace
+cd terraform && terraform workspace select work-vm-1
+
+# Destroy resources
+terraform destroy -auto-approve -var="vm_name=work-vm-1"
+
+# Clean up workspace
+terraform workspace select default
+terraform workspace delete work-vm-1
+
+# Clean up inventory
+rm ../ansible/inventory.d/work-vm-1.ini
+cat ../ansible/inventory.d/*.ini > ../ansible/inventory.ini
 ```
 
 ### Bulk Operations

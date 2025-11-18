@@ -201,6 +201,17 @@ if [ ! -d ".terraform" ]; then
     terraform init
 fi
 
+# Create or select Terraform workspace for this VM (multi-VM support)
+# Each VM gets its own workspace with isolated state
+echo -e "${YELLOW}Managing Terraform workspace for VM: $VM_NAME${NC}"
+if terraform workspace list | grep -q "^\*\?\s*${VM_NAME}$"; then
+    echo "Selecting existing workspace: $VM_NAME"
+    terraform workspace select "$VM_NAME"
+else
+    echo "Creating new workspace: $VM_NAME"
+    terraform workspace new "$VM_NAME"
+fi
+
 # Create VM (BUG-003: Proper quoting for paths with spaces)
 TERRAFORM_VARS=(
     -var="vm_name=$VM_NAME"
