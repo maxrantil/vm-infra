@@ -21,6 +21,20 @@ echo ""
 
 cd "$TERRAFORM_DIR"
 
+# Select workspace for this VM (multi-VM support)
+echo -e "${YELLOW}Selecting Terraform workspace: $VM_NAME${NC}"
+if terraform workspace list | grep -q "^\*\?\s*${VM_NAME}$"; then
+    terraform workspace select "$VM_NAME"
+else
+    echo -e "${RED}Workspace for VM '$VM_NAME' not found${NC}"
+    echo ""
+    echo "Available workspaces:"
+    terraform workspace list
+    echo ""
+    echo -e "${YELLOW}Tip: Use 'virsh list --all' to see existing VMs${NC}"
+    exit 1
+fi
+
 # Check if VM exists
 if ! terraform show 2> /dev/null | grep -q "vm_name.*$VM_NAME"; then
     echo -e "${RED}VM '$VM_NAME' not found in Terraform state${NC}"
@@ -53,6 +67,12 @@ else
     echo "[vms]" > "$SCRIPT_DIR/ansible/inventory.ini"
     echo -e "${GREEN}✓ No VMs remaining, created empty inventory${NC}"
 fi
+
+# Delete the workspace (switch to default first)
+echo -e "${YELLOW}Cleaning up workspace: $VM_NAME${NC}"
+terraform workspace select default
+terraform workspace delete "$VM_NAME"
+echo -e "${GREEN}✓ Deleted workspace: $VM_NAME${NC}"
 
 echo ""
 echo -e "${GREEN}✓ VM '$VM_NAME' destroyed successfully${NC}"
