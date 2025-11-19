@@ -1,6 +1,7 @@
 #!/bin/bash
-# ABOUTME: Helper script to start VMs and connect via SSH in one command
+# ABOUTME: Helper script to start VMs and connect via SSH with dynamic username detection
 # Usage: ./vm-ssh.sh <vm-name>
+# Automatically retrieves configured username from terraform state (supports custom usernames)
 
 set -e
 
