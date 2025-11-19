@@ -195,8 +195,10 @@ provision_test_vm() {
 
     echo -e "${YELLOW}[TEST] Provisioning VM: $vm_name (user: $username)${NC}"
 
+    # Use --test-dotfiles to use local dotfiles and bypass GitHub deploy key prompt
+    # This makes tests fully automated and faster
     if SKIP_WHITELIST_CHECK=1 "$PROJECT_ROOT/provision-vm.sh" \
-       "$vm_name" "$username" "$memory" "$vcpus" > /dev/null 2>&1; then
+       "$vm_name" "$username" "$memory" "$vcpus" --test-dotfiles /home/mqx/workspace/dotfiles > /dev/null 2>&1; then
         echo -e "${GREEN}[TEST] VM provisioned successfully${NC}"
         return 0
     else
