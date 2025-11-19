@@ -41,6 +41,14 @@ if ! terraform show 2> /dev/null | grep -q "vm_name.*$VM_NAME"; then
     exit 1
 fi
 
+# Extract username from terraform state
+VM_USERNAME=$(terraform show | grep '"vm_username"' | sed 's/.*"\(.*\)"/\1/')
+if [ -z "$VM_USERNAME" ]; then
+    echo -e "${RED}Could not determine username from Terraform state${NC}"
+    exit 1
+fi
+echo -e "${YELLOW}Found VM username: $VM_USERNAME${NC}"
+
 # Confirm destruction
 read -p "Are you sure you want to destroy VM '$VM_NAME'? [y/N] " -n 1 -r
 echo
@@ -49,7 +57,7 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-terraform destroy -auto-approve -var="vm_name=$VM_NAME"
+terraform destroy -auto-approve -var="vm_name=$VM_NAME" -var="vm_username=$VM_USERNAME"
 
 # Remove inventory fragment
 INVENTORY_FRAGMENT="$SCRIPT_DIR/ansible/inventory.d/${VM_NAME}.ini"
