@@ -316,7 +316,7 @@ If you skipped the interactive setup or need to add the key later:
 
 1. Retrieve the deploy key from the VM:
    ```bash
-   ssh -i ~/.ssh/vm_key mr@<VM_IP> 'cat ~/.ssh/id_ed25519.pub'
+   ssh -i ~/.ssh/vm_key <username>@<VM_IP> 'cat ~/.ssh/id_ed25519.pub'
    ```
 
 2. Go to: https://github.com/maxrantil/dotfiles/settings/keys
@@ -339,7 +339,7 @@ To rotate a deploy key:
 ```bash
 # 1. Delete old key from GitHub repository settings
 # 2. Remove old key from VM
-ssh -i ~/.ssh/vm_key mr@<VM_IP> "rm ~/.ssh/id_ed25519*"
+ssh -i ~/.ssh/vm_key <username>@<VM_IP> "rm ~/.ssh/id_ed25519*"
 
 # 3. Re-run Ansible to generate new key
 cd ansible
@@ -373,7 +373,8 @@ ansible-playbook -i inventory.ini playbook.yml
 If you prefer manual connection:
 
 ```bash
-ssh -i ~/.ssh/vm_key mr@<VM_IP>
+# Replace <username> with the VM's username (specified during provisioning)
+ssh -i ~/.ssh/vm_key <username>@<VM_IP>
 ```
 
 ## Directory Structure
@@ -821,8 +822,11 @@ virsh console <vm-name>
 
 **SSH Access**:
 ```bash
-# SSH to VM (after provisioning)
-ssh mr@$(virsh domifaddr <vm-name> | awk '/192/ {print $4}' | cut -d/ -f1)
+# SSH to VM (after provisioning) - use vm-ssh.sh for automatic username detection
+./vm-ssh.sh <vm-name>
+
+# Or manually with username:
+ssh <username>@$(virsh domifaddr <vm-name> | awk '/192/ {print $4}' | cut -d/ -f1)
 ```
 
 ---
