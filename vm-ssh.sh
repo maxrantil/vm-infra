@@ -95,15 +95,12 @@ get_vm_username() {
     # Capture original workspace for cleanup
     original_workspace=$(cd "$terraform_dir" && terraform workspace show 2>/dev/null)
 
-    # BUG-002: Set cleanup trap - guarantees workspace restoration in ALL exit paths
-    # This prevents state pollution if function exits early (error, interrupt, SIGTERM)
-    # Similar to TOCTOU protection in lib/validation.sh (SEC-001)
-    trap 'cd "$terraform_dir" && terraform workspace select "$original_workspace" 2>/dev/null' RETURN
-
     # Switch to VM-specific workspace to access isolated terraform state
     # Each VM has its own workspace (created in provision-vm.sh) to support
     # multiple concurrent VMs without state conflicts. See PR #122 for details.
     if ! (cd "$terraform_dir" && terraform workspace select "$vm_name" 2>/dev/null); then
+        # Workspace selection failed - restore original workspace before returning
+        cd "$terraform_dir" && terraform workspace select "$original_workspace" 2>/dev/null
         return 1
     fi
 
@@ -114,6 +111,8 @@ get_vm_username() {
 
     # Validate extraction succeeded
     if [ $extract_status -ne 0 ]; then
+        # Extraction failed - restore original workspace before returning
+        cd "$terraform_dir" && terraform workspace select "$original_workspace" 2>/dev/null
         return 1
     fi
 
@@ -123,12 +122,16 @@ get_vm_username() {
     if [[ ! "$username" =~ ^[a-z][a-z0-9_-]{0,31}$ ]] || [ -z "$username" ]; then
         echo -e "${RED}[ERROR] Invalid username format from terraform state: '$username'${NC}" >&2
         echo "Expected: lowercase letter followed by lowercase letters, digits, underscores, or hyphens (max 32 chars)" >&2
+        # Validation failed - restore original workspace before returning
+        cd "$terraform_dir" && terraform workspace select "$original_workspace" 2>/dev/null
         return 1
     fi
 
+    # Success - restore original workspace before returning username
+    cd "$terraform_dir" && terraform workspace select "$original_workspace" 2>/dev/null
+
     echo "$username"
     return 0
-    # Trap automatically restores original workspace here
 }
 
 # Main execution (skip if being sourced for testing)
