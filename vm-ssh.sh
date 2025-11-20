@@ -73,7 +73,7 @@ get_vm_username() {
     local username
 
     # SEC-002: Validate terraform is available
-    if ! command -v terraform >/dev/null 2>&1; then
+    if ! command -v terraform > /dev/null 2>&1; then
         echo -e "${RED}[ERROR] Terraform not found in PATH${NC}" >&2
         echo "Install terraform: https://developer.hashicorp.com/terraform/downloads" >&2
         return 1
@@ -93,26 +93,26 @@ get_vm_username() {
     fi
 
     # Capture original workspace for cleanup
-    original_workspace=$(cd "$terraform_dir" && terraform workspace show 2>/dev/null)
+    original_workspace=$(cd "$terraform_dir" && terraform workspace show 2> /dev/null)
 
     # Switch to VM-specific workspace to access isolated terraform state
     # Each VM has its own workspace (created in provision-vm.sh) to support
     # multiple concurrent VMs without state conflicts. See PR #122 for details.
-    if ! (cd "$terraform_dir" && terraform workspace select "$vm_name" 2>/dev/null); then
+    if ! (cd "$terraform_dir" && terraform workspace select "$vm_name" 2> /dev/null); then
         # Workspace selection failed - restore original workspace before returning
-        cd "$terraform_dir" && terraform workspace select "$original_workspace" 2>/dev/null
+        cd "$terraform_dir" && terraform workspace select "$original_workspace" 2> /dev/null
         return 1
     fi
 
     # BUG-001: Separate declaration from assignment to avoid masking return values (SC2155)
     # Extract username from terraform output (proper interface, not string parsing)
-    username=$(cd "$terraform_dir" && terraform output -raw vm_username 2>/dev/null)
+    username=$(cd "$terraform_dir" && terraform output -raw vm_username 2> /dev/null)
     local extract_status=$?
 
     # Validate extraction succeeded
     if [ $extract_status -ne 0 ]; then
         # Extraction failed - restore original workspace before returning
-        cd "$terraform_dir" && terraform workspace select "$original_workspace" 2>/dev/null
+        cd "$terraform_dir" && terraform workspace select "$original_workspace" 2> /dev/null
         return 1
     fi
 
@@ -123,12 +123,12 @@ get_vm_username() {
         echo -e "${RED}[ERROR] Invalid username format from terraform state: '$username'${NC}" >&2
         echo "Expected: lowercase letter followed by lowercase letters, digits, underscores, or hyphens (max 32 chars)" >&2
         # Validation failed - restore original workspace before returning
-        cd "$terraform_dir" && terraform workspace select "$original_workspace" 2>/dev/null
+        cd "$terraform_dir" && terraform workspace select "$original_workspace" 2> /dev/null
         return 1
     fi
 
     # Success - restore original workspace before returning username
-    cd "$terraform_dir" && terraform workspace select "$original_workspace" 2>/dev/null
+    cd "$terraform_dir" && terraform workspace select "$original_workspace" 2> /dev/null
 
     echo "$username"
     return 0
@@ -271,4 +271,4 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
     # Connect via SSH
     ssh -i ~/.ssh/vm_key "$VM_USERNAME"@"$VM_IP"
 
-fi  # End of main execution guard
+fi # End of main execution guard
