@@ -612,3 +612,162 @@ OR: Remove register_cleanup_on_exit entirely, call destroy_test_vm directly at e
 **Environment**: Clean branch, all commits pushed, debug trace saved to /tmp/test_output.log
 
 **Doctor Hubert**: 4 hours of deep investigation confirmed the implementation is correct! The code works perfectly - VMs provision, usernames extract correctly. The only issue is test infrastructure (EXIT trap firing too early). Simple fix: move cleanup registration to end of test functions. Next session should be ~3 hours to fix tests, run suite, and merge.
+
+---
+
+## ✅ EXIT Trap Fix Session Complete (2025-11-20)
+
+### Work Completed This Session
+
+**Test Infrastructure Fix** ✅ (commit 6f3f4db)
+- ✅ **Root Cause**: Tests called both `register_cleanup_on_exit()` (EXIT trap) AND explicit `destroy_test_vm()`, causing double cleanup attempts
+- ✅ **Solution Applied (Option 3)**: Removed all `register_cleanup_on_exit()` calls, rely only on explicit cleanup
+- ✅ **Files Modified**:
+  - tests/test_vm_ssh.sh: Removed 4 `register_cleanup_on_exit` calls
+  - tests/test_vm_ssh_single.sh: Removed 1 `register_cleanup_on_exit` call
+  - tests/test_vm_ssh.sh: Removed unused color variables (ShellCheck compliance)
+- ✅ **Commit Message**: Clear explanation of double cleanup issue and fix
+- ✅ **Pre-commit Hooks**: All passing ✅
+- ✅ **Pushed to PR #125**: Commit 6f3f4db now on remote
+
+**Test Pattern (Fixed)**:
+```bash
+test_function() {
+    provision_test_vm "$vm" "$user" 2048 1 || return 1
+    # NO register_cleanup_on_exit anymore
+
+    # ... test assertions ...
+
+    destroy_test_vm "$vm"  # Single cleanup path
+}
+```
+
+### Issues Encountered
+
+**VM Cleanup Challenges**:
+- 5 leftover test VM workspaces from timed-out test runs (test-username-11239, 11662, 22599, 30231, 30456)
+- Manual cleanup attempts failed (destroy-vm.sh script issues)
+- **Action Required**: Manual cleanup by Doctor Hubert or future session
+
+**Test Execution**:
+- Attempted to run tests/test_vm_ssh_single.sh to verify fix
+- Test timed out (10-minute limit insufficient for VM provisioning)
+- VM provisioning takes 5-10 minutes per test (Ansible package installation)
+- Full test suite would take ~30-40 minutes (6 tests × 5-10 min each)
+
+### Time Tracking
+- **This Session**: ~1 hour (fix applied and committed)
+- **Previous Sessions**: 16 hours (planning + implementation + investigation)
+- **Total Investment**: 17 hours (proper low time-preference approach)
+- **Remaining**: 2-3 hours (manual VM cleanup + full test verification)
+
+### Quality Metrics
+- ✅ Clean fix (removed problematic double cleanup pattern)
+- ✅ All pre-commit hooks passing
+- ✅ Clear commit message explaining the fix
+- ✅ Code follows new single-cleanup pattern
+- ⏳ Test verification pending (requires longer timeout or manual execution)
+
+---
+
+## 🚀 UPDATED Next Session Priorities
+
+### Critical: Verify Fix & Complete Issue #123 (~2-3 hours)
+
+**Priority 1**: Manual VM Cleanup (10 minutes)
+```bash
+# Clean up leftover test VMs
+cd /home/mqx/workspace/vm-infra
+./destroy-vm.sh test-username-11239
+./destroy-vm.sh test-username-11662
+./destroy-vm.sh test-username-22599
+./destroy-vm.sh test-username-30231
+./destroy-vm.sh test-username-30456
+```
+
+**Priority 2**: Verify EXIT Trap Fix (30-40 minutes)
+```bash
+# Run full test suite with adequate timeout
+# Note: Each test provisions a VM (~5-10 min)
+cd /home/mqx/workspace/vm-infra
+timeout 2400 tests/test_vm_ssh.sh  # 40-minute timeout for 6 tests
+```
+
+**Priority 3**: Update PR #125 (5 minutes)
+- Add test results to PR description
+- Confirm all 6 tests passing
+- Note EXIT trap fix in PR
+
+**Priority 4**: Merge PR #125 (5 minutes)
+```bash
+gh pr merge 125 --squash
+# Verify Issue #123 auto-closes
+```
+
+**Priority 5**: Session Handoff (10 minutes)
+- Update SESSION_HANDOVER.md with completion status
+- Generate startup prompt for post-Issue-#123 work
+
+---
+
+## 📝 FINAL Startup Prompt for Next Session
+
+```
+Read CLAUDE.md to understand our workflow, then complete Issue #123 by verifying EXIT trap fix and merging PR #125.
+
+**Immediate priority**: Verify EXIT trap fix + complete Issue #123 (~2-3 hours)
+**Context**: EXIT trap fix applied (commit 6f3f4db), code VERIFIED CORRECT. Need to run full test suite to confirm fix, then merge.
+**Reference docs**:
+  - PR #125: https://github.com/maxrantil/vm-infra/pull/125
+  - SESSION_HANDOVER.md: Complete implementation history
+  - tests/test_vm_ssh.sh: 6 tests ready to run
+**Ready state**: feat/issue-123-vm-ssh-username-fix branch, clean working directory
+
+**First action**:
+1. Clean up 5 leftover test VMs (test-username-11239, 11662, 22599, 30231, 30456)
+2. Run full test suite: `timeout 2400 tests/test_vm_ssh.sh`
+3. Update PR #125 with test results
+4. Merge PR #125
+5. Verify Issue #123 closed
+
+**Expected scope**:
+- Manual VM cleanup (10 min)
+- Full test execution (30-40 min)
+- PR update + merge (10 min)
+- Session handoff (10 min)
+- **Total: 1-2 hours to completion**
+
+**Success criteria**: All 6 tests passing ✅, PR #125 merged ✅, Issue #123 closed ✅
+```
+
+---
+
+## 📊 Final Time Tracking
+
+### Total Time Investment
+- **Planning & Agent Validation**: 6 hours
+- **Implementation (RED→GREEN→REFACTOR)**: 4 hours
+- **Documentation Updates**: 2 hours
+- **Test Infrastructure Investigation**: 4 hours
+- **EXIT Trap Fix**: 1 hour
+- **TOTAL**: 17 hours (proper low time-preference approach)
+
+### Remaining
+- **Manual VM Cleanup**: 10 minutes
+- **Full Test Suite Execution**: 30-40 minutes
+- **PR Update & Merge**: 10 minutes
+- **Session Handoff**: 10 minutes
+- **TOTAL REMAINING**: 1-2 hours
+
+**Grand Total**: ~19 hours for complete, high-quality Issue #123 resolution
+
+---
+
+✅ **EXIT Trap Fix Session Handoff Complete**
+
+**Status**: EXIT trap fix applied and pushed (commit 6f3f4db)
+**Next Step**: Manual VM cleanup + full test verification + merge PR #125
+**Environment**: Clean branch, all pre-commit hooks passing
+**PR**: #125 (contains EXIT trap fix)
+
+**Doctor Hubert**: EXIT trap fix complete! ✅ Removed problematic double cleanup pattern (register_cleanup_on_exit + explicit destroy_test_vm). All code now follows single cleanup path. Fix committed (6f3f4db) and pushed. Next session: clean up leftover test VMs, run full test suite to verify fix works, then merge PR #125 and close Issue #123. Estimated 1-2 hours to completion. Total time investment: 17 hours (low time-preference, by-the-book approach).
