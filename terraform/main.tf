@@ -173,6 +173,12 @@ output "vm_ip" {
   value = length(libvirt_domain.vm.network_interface[0].addresses) > 0 ? libvirt_domain.vm.network_interface[0].addresses[0] : "pending"
 }
 
+# Output the VM's configured username for vm-ssh.sh
+output "vm_username" {
+  value       = var.vm_username
+  description = "Username configured for the VM"
+}
+
 # Generate Ansible inventory fragment for this VM
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/inventory.tpl", {

@@ -69,14 +69,17 @@ sudo virsh list --all
 ## 🔌 SSH Connection
 
 ```bash
-# Manual SSH (if not using vm-ssh.sh)
-ssh -i ~/.ssh/vm_key mr@192.168.122.110
+# Recommended: Use vm-ssh.sh (auto-detects username)
+./vm-ssh.sh work-vm-1
+
+# Manual SSH (replace <username> with VM's username)
+ssh -i ~/.ssh/vm_key <username>@192.168.122.110
 
 # Check SSH service status
-ssh -i ~/.ssh/vm_key mr@<IP> 'systemctl status sshd'
+ssh -i ~/.ssh/vm_key <username>@<IP> 'systemctl status sshd'
 
 # Execute command remotely
-ssh -i ~/.ssh/vm_key mr@<IP> 'hostname && uptime'
+ssh -i ~/.ssh/vm_key <username>@<IP> 'hostname && uptime'
 ```
 
 ---
@@ -96,8 +99,8 @@ sleep 5
 # 4. Get IP
 sudo virsh domifaddr work-vm-1
 
-# 5. Connect
-ssh -i ~/.ssh/vm_key mr@<IP>
+# 5. Connect (or just use: ./vm-ssh.sh work-vm-1)
+ssh -i ~/.ssh/vm_key <username>@<IP>
 ```
 
 ---
@@ -118,7 +121,7 @@ sudo virsh console work-vm-1    # Exit: Ctrl+]
 ### SSH Refused?
 ```bash
 # Wait for cloud-init
-ssh -i ~/.ssh/vm_key mr@<IP> 'cloud-init status --wait'
+ssh -i ~/.ssh/vm_key <username>@<IP> 'cloud-init status --wait'
 ```
 
 ### VM Won't Start?
@@ -220,7 +223,7 @@ sudo virsh shutdown work-vm-1
 - **SSH Key:** `~/.ssh/vm_key` (600 permissions)
 - **Network:** VMs isolated in 192.168.122.0/24 NAT
 - **Access:** Only from host machine, no external exposure
-- **User:** Default user is `mr` (created during provisioning)
+- **User:** Custom username specified during provisioning (vm-ssh.sh auto-detects it)
 
 ---
 
@@ -269,5 +272,5 @@ sudo virsh shutdown work-vm-1
 
 ---
 
-**Last Updated:** 2025-11-12
+**Last Updated:** 2025-11-19
 **Project:** vm-infra (libvirt/KVM Ubuntu VMs)
