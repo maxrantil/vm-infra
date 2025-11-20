@@ -15,6 +15,7 @@ TEST_MODE="${TEST_MODE:-0}"
 
 # Parse arguments
 DOTFILES_LOCAL_PATH=""
+MINIMAL_TEST=0
 POSITIONAL_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -22,11 +23,15 @@ while [[ $# -gt 0 ]]; do
         --test-dotfiles)
             if [ -z "${2:-}" ]; then
                 echo -e "${RED}[ERROR] --test-dotfiles flag requires a path argument${NC}" >&2
-                echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]" >&2
+                echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--minimal-test] [--dry-run]" >&2
                 exit 1
             fi
             DOTFILES_LOCAL_PATH="$2"
             shift 2
+            ;;
+        --minimal-test)
+            MINIMAL_TEST=1
+            shift
             ;;
         --dry-run)
             TEST_MODE=1
@@ -34,7 +39,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         -*)
             echo -e "${RED}[ERROR] Unknown flag: $1${NC}" >&2
-            echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]" >&2
+            echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--minimal-test] [--dry-run]" >&2
             exit 1
             ;;
         *)
@@ -50,7 +55,7 @@ set -- "${POSITIONAL_ARGS[@]}"
 # Require VM name and username
 if [ -z "${1:-}" ]; then
     echo -e "${RED}[ERROR] Missing required argument: vm-name${NC}" >&2
-    echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]" >&2
+    echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--minimal-test] [--dry-run]" >&2
     echo "" >&2
     echo "Example: $0 work-vm developer 4096 2" >&2
     exit 1
@@ -58,7 +63,7 @@ fi
 
 if [ -z "${2:-}" ]; then
     echo -e "${RED}[ERROR] Missing required argument: username${NC}" >&2
-    echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--dry-run]" >&2
+    echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--minimal-test] [--dry-run]" >&2
     echo "" >&2
     echo "Example: $0 work-vm developer 4096 2" >&2
     exit 1
@@ -82,6 +87,13 @@ VM_NAME="$1"
 VM_USERNAME="$2"
 MEMORY="${3:-4096}"
 VCPUS="${4:-2}"
+
+# Select playbook based on --minimal-test flag
+if [ "$MINIMAL_TEST" = "1" ]; then
+    PLAYBOOK="playbook-minimal-test.yml"
+else
+    PLAYBOOK="playbook.yml"
+fi
 
 # Directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -305,14 +317,14 @@ echo ""
 echo -e "${YELLOW}Step 4: Provisioning with Ansible...${NC}"
 cd "$ANSIBLE_DIR"
 
-if ! ansible-playbook -i inventory.ini playbook.yml; then
+if ! ansible-playbook -i inventory.ini "$PLAYBOOK"; then
     echo "" >&2
     echo -e "${RED}[ERROR] Ansible provisioning failed${NC}" >&2
     echo "" >&2
     echo "VM is accessible but Ansible failed. Check:" >&2
     echo "  1. Ansible logs above for details" >&2
     echo "  2. Manual connection: ssh -i ~/.ssh/vm_key $VM_USERNAME@$VM_IP" >&2
-    echo "  3. Retry: cd ansible && ansible-playbook -i inventory.ini playbook.yml" >&2
+    echo "  3. Retry: cd ansible && ansible-playbook -i inventory.ini $PLAYBOOK" >&2
     exit 1
 fi
 
@@ -356,17 +368,17 @@ else
         if [ "$DEPLOY_KEY_RESPONSE" != "skip" ]; then
             echo ""
             echo -e "${YELLOW}Re-running Ansible to install dotfiles...${NC}"
-            if ansible-playbook -i inventory.ini playbook.yml; then
+            if ansible-playbook -i inventory.ini "$PLAYBOOK"; then
                 echo -e "${GREEN}✓ Dotfiles installation complete${NC}"
             else
                 echo -e "${RED}⚠ Dotfiles installation failed - you can retry manually:${NC}" >&2
-                echo "  cd ansible && ansible-playbook -i inventory.ini playbook.yml" >&2
+                echo "  cd ansible && ansible-playbook -i inventory.ini $PLAYBOOK" >&2
             fi
         else
             echo -e "${YELLOW}⚠ Skipping dotfiles installation${NC}"
             echo "To install dotfiles later:"
             echo "  1. Add deploy key to GitHub (see above)"
-            echo "  2. Run: cd ansible && ansible-playbook -i inventory.ini playbook.yml"
+            echo "  2. Run: cd ansible && ansible-playbook -i inventory.ini $PLAYBOOK"
         fi
     else
         echo -e "${RED}⚠ Could not retrieve deploy key from VM${NC}" >&2

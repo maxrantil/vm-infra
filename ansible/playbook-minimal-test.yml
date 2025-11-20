@@ -1,0 +1,190 @@
+# ABOUTME: Minimal Ansible playbook for testing username extraction (skips LibreWolf/heavy packages)
+
+---
+- name: Configure Ubuntu VMs (Minimal Test Mode)
+  hosts: all
+  become: yes
+
+  vars:
+    # User and home directory configuration
+    user_home: "/home/{{ ansible_user }}"
+
+    # SSH key paths (source on controller, destination on VM)
+    ssh_key_path: "{{ user_home }}/.ssh/id_ed25519"
+    ssh_pub_key_path: "{{ user_home }}/.ssh/id_ed25519.pub"
+    ssh_dir: "{{ user_home }}/.ssh"
+
+    # Dotfiles repository and directory
+    dotfiles_repo: "git@github.com:maxrantil/dotfiles.git"
+    dotfiles_dir: "{{ user_home }}/.dotfiles"
+
+  tasks:
+    - block:
+        - name: Ensure system is up to date
+          apt:
+            update_cache: yes
+            upgrade: dist
+
+        - name: Install core packages only (minimal for testing)
+          apt:
+            name:
+              # Core tools
+              - git
+              - curl
+              - wget
+              - vim
+              - zsh
+              - python3
+
+              # Minimal CLI tools
+              - tmux
+              - jq
+
+            state: present
+          register: package_install_result
+
+        - name: Change default shell to zsh for user
+          user:
+            name: "{{ ansible_user }}"
+            shell: /usr/bin/zsh
+
+        # Setup SSH for git operations
+        - name: Create .ssh directory for user
+          file:
+            path: "{{ ssh_dir }}"
+            state: directory
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0700'
+
+        # CVE-2024-ANSIBLE-001: Generate VM-specific deploy keys (CVSS 9.3)
+        # Security: Each VM gets unique key instead of copying host SSH key
+        - name: Generate VM-specific deploy key
+          command: ssh-keygen -t ed25519 -f {{ ssh_key_path }} -N "" -C "vm-deploy-{{ ansible_hostname }}"
+          args:
+            creates: "{{ ssh_key_path }}"
+          become_user: "{{ ansible_user }}"
+
+        - name: Set deploy key permissions
+          file:
+            path: "{{ ssh_key_path }}"
+            mode: '0600'
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+
+        - name: Add GitHub to known hosts
+          known_hosts:
+            name: github.com
+            key: "{{ lookup('pipe', 'ssh-keyscan -t rsa github.com') }}"
+            path: "{{ ssh_dir }}/known_hosts"
+            state: present
+          become_user: "{{ ansible_user }}"
+
+        # Copy local dotfiles (if --test-dotfiles flag used)
+        - name: Copy local dotfiles from host to VM
+          synchronize:
+            src: "{{ dotfiles_local_path }}/"
+            dest: "{{ dotfiles_dir }}"
+            delete: no
+            recursive: yes
+          become_user: "{{ ansible_user }}"
+          when: dotfiles_local_path is defined and dotfiles_local_path != ''
+          register: dotfiles_copy_result
+
+        # Clone dotfiles repository (if NOT using local dotfiles)
+        # CVE-4: Git shallow clone to limit history exposure (CVSS 7.5)
+        - name: Clone dotfiles repository
+          git:
+            repo: "{{ dotfiles_repo }}"
+            dest: "{{ dotfiles_dir }}"
+            clone: yes
+            update: yes
+            depth: 1
+          become_user: "{{ ansible_user }}"
+          when: dotfiles_local_path is not defined or dotfiles_local_path == ''
+          register: dotfiles_clone_result
+
+        # Run dotfiles install script
+        - name: Run dotfiles install script
+          command: "{{ dotfiles_dir }}/install.sh"
+          become_user: "{{ ansible_user }}"
+          args:
+            creates: "{{ dotfiles_dir }}/.install_complete"
+
+        - name: Mark dotfiles installation as complete
+          file:
+            path: "{{ dotfiles_dir }}/.install_complete"
+            state: touch
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0644'
+
+        - name: Configure SSH to disable password auth
+          lineinfile:
+            path: /etc/ssh/sshd_config
+            regexp: '^#?PasswordAuthentication'
+            line: 'PasswordAuthentication no'
+          notify: restart ssh
+
+      rescue:
+        # State-tracked rollback: Only cleanup if the task was attempted and failed
+        # package_install_result is set via 'register:' directive in main tasks
+        - name: Rollback - Remove partially installed packages
+          apt:
+            autoremove: yes  # Remove orphaned dependencies
+            purge: yes       # Remove configuration files
+          when: package_install_result is defined and package_install_result is failed
+          ignore_errors: yes
+
+        # State-tracked rollback: Cleanup dotfiles if clone was attempted
+        # dotfiles_clone_result is set via 'register:' directive in main tasks
+        - name: Rollback - Remove dotfiles directory
+          file:
+            path: "{{ dotfiles_dir }}"
+            state: absent
+          when: dotfiles_clone_result is defined
+          ignore_errors: yes  # Continue even if directory doesn't exist
+
+        - name: Report failure and recovery guidance
+          debug:
+            msg: |
+              ═══════════════════════════════════════════════════════════════
+              ⚠️  PROVISIONING FAILED - VM in Partially Configured State  ⚠️
+              ═══════════════════════════════════════════════════════════════
+
+              The Ansible playbook encountered an error during provisioning.
+              Some cleanup tasks have been attempted, but manual intervention
+              may be required.
+
+              Recovery Options:
+
+              1. RECOMMENDED: Destroy and recreate the VM
+                 ./destroy-vm.sh {{ ansible_hostname }}
+                 ./provision-vm.sh {{ ansible_hostname }}
+
+              2. ALTERNATIVE: Manually fix the issue and re-run Ansible
+                 cd ansible
+                 ansible-playbook -i inventory.ini playbook.yml
+
+              3. Check the error messages above for specific failure details
+
+              ═══════════════════════════════════════════════════════════════
+
+      always:
+        - name: Log provisioning result
+          delegate_to: localhost
+          become: no
+          copy:
+            content: |
+              {{ ansible_date_time.iso8601 }}: Provisioning {{ 'FAILED' if ansible_failed_task is defined else 'COMPLETED' }} for {{ ansible_hostname }}
+              {% if ansible_failed_task is defined %}
+              Failed task: {{ ansible_failed_task.name }}
+              {% endif %}
+            dest: "./provisioning.log"
+            mode: '0600'
+
+  handlers:
+    - name: restart ssh
+      service:
+        name: ssh
+        state: restarted
