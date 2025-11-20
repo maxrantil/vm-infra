@@ -200,7 +200,7 @@ provision_test_vm() {
     # This makes tests fully automated and faster
     # TEMPORARY: Show output for debugging
     if SKIP_WHITELIST_CHECK=1 "$PROJECT_ROOT/provision-vm.sh" \
-       "$vm_name" "$username" "$memory" "$vcpus" --test-dotfiles /home/mqx/workspace/dotfiles --minimal-test; then
+        "$vm_name" "$username" "$memory" "$vcpus" --test-dotfiles /home/mqx/workspace/dotfiles --minimal-test; then
         echo -e "${GREEN}[TEST] VM provisioned successfully${NC}"
         return 0
     else

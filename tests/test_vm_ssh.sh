@@ -105,17 +105,17 @@ test_ssh_connection_with_custom_username() {
     # Wait for SSH to be fully ready
     echo "[TEST] Waiting for SSH to be ready..."
     local vm_ip
-    vm_ip=$(cd "$PROJECT_ROOT/terraform" && \
-            terraform workspace select "$test_vm" 2>/dev/null && \
-            terraform output -raw vm_ip)
-    cd "$PROJECT_ROOT/terraform" && terraform workspace select default 2>/dev/null
+    vm_ip=$(cd "$PROJECT_ROOT/terraform" &&
+        terraform workspace select "$test_vm" 2> /dev/null &&
+        terraform output -raw vm_ip)
+    cd "$PROJECT_ROOT/terraform" && terraform workspace select default 2> /dev/null
 
     local max_wait=60
     local waited=0
     while [ $waited -lt $max_wait ]; do
         if ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no \
-               -o ConnectTimeout=2 -o BatchMode=yes \
-               "$test_user@$vm_ip" 'exit' 2>/dev/null; then
+            -o ConnectTimeout=2 -o BatchMode=yes \
+            "$test_user@$vm_ip" 'exit' 2> /dev/null; then
             break
         fi
         sleep 2
@@ -130,7 +130,7 @@ test_ssh_connection_with_custom_username() {
     # Test: Verify SSH connection using extracted username
     local ssh_result
     ssh_result=$(ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no \
-                     -o ConnectTimeout=5 "$extracted_username@$vm_ip" 'whoami' 2>/dev/null)
+        -o ConnectTimeout=5 "$extracted_username@$vm_ip" 'whoami' 2> /dev/null)
     assert_equals "$test_user" "$ssh_result" "SSH should connect as correct user"
 
     # Cleanup
@@ -217,7 +217,7 @@ test_workspace_cleanup() {
     assert_equals "default" "$current_workspace" "Workspace should be default after success"
 
     # Test: Attempt to get username for non-existent VM (should fail)
-    get_vm_username "nonexistent-$$" 2>/dev/null || true
+    get_vm_username "nonexistent-$$" 2> /dev/null || true
 
     # Assert: Workspace still default (cleanup happened despite error)
     current_workspace=$(cd "$PROJECT_ROOT/terraform" && terraform workspace show)
