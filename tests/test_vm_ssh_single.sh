@@ -36,7 +36,6 @@ test_username_extraction() {
 
     # Setup: Provision VM
     provision_test_vm "$test_vm" "$test_user" 2048 1 || return 1
-    register_cleanup_on_exit "$test_vm"
 
     # Verify terraform workspace exists
     local workspace_exists

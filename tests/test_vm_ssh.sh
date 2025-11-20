@@ -14,12 +14,6 @@ source "$SCRIPT_DIR/lib/cleanup.sh"
 # Source vm-ssh.sh to make get_vm_username available
 source "$PROJECT_ROOT/vm-ssh.sh"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
 echo "========================================"
 echo "vm-ssh.sh Username Tests"
 echo "========================================"
@@ -40,7 +34,6 @@ test_username_extraction() {
 
     # Setup: Provision VM
     provision_test_vm "$test_vm" "$test_user" 2048 1 || return 1
-    register_cleanup_on_exit "$test_vm"
 
     # Verify terraform workspace exists
     local workspace_exists
@@ -108,7 +101,6 @@ test_ssh_connection_with_custom_username() {
     # Setup: Provision VM
     echo "[TEST] Provisioning VM (this may take 1-2 minutes)..."
     provision_test_vm "$test_vm" "$test_user" 2048 1 || return 1
-    register_cleanup_on_exit "$test_vm"
 
     # Wait for SSH to be fully ready
     echo "[TEST] Waiting for SSH to be ready..."
@@ -160,7 +152,6 @@ test_username_special_chars() {
 
     # Setup: Provision VM with special chars in username
     provision_test_vm "$test_vm" "$test_user" 2048 1 || return 1
-    register_cleanup_on_exit "$test_vm"
 
     # Test: Extract username
     local extracted_username
@@ -216,7 +207,6 @@ test_workspace_cleanup() {
 
     # Setup: Provision VM
     provision_test_vm "$test_vm" "$test_user" 2048 1 || return 1
-    register_cleanup_on_exit "$test_vm"
 
     # Test: Get username (should succeed)
     get_vm_username "$test_vm" > /dev/null
