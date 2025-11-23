@@ -14,6 +14,11 @@
     ssh_pub_key_path: "{{ user_home }}/.ssh/id_ed25519.pub"
     ssh_dir: "{{ user_home }}/.ssh"
 
+    # Pre-generated dotfiles deploy key (on host machine)
+    # This key should be added to GitHub once: https://github.com/maxrantil/dotfiles/settings/keys
+    dotfiles_deploy_key_src: "{{ lookup('env', 'HOME') }}/.ssh/dotfiles_deploy_key"
+    dotfiles_deploy_key_pub_src: "{{ lookup('env', 'HOME') }}/.ssh/dotfiles_deploy_key.pub"
+
     # Dotfiles repository and directory
     dotfiles_repo: "git@github.com:maxrantil/dotfiles.git"
     dotfiles_dir: "{{ user_home }}/.dotfiles"
@@ -197,48 +202,23 @@
             group: "{{ ansible_user }}"
             mode: '0700'
 
-        # CVE-2024-ANSIBLE-001: Generate VM-specific deploy keys (CVSS 9.3)
-        # Security: Each VM gets unique key instead of copying host SSH key
-        - name: Generate VM-specific deploy key
-          command: ssh-keygen -t ed25519 -f {{ ssh_key_path }} -N "" -C "vm-deploy-{{ ansible_hostname }}"
-          args:
-            creates: "{{ ssh_key_path }}"
-          become_user: "{{ ansible_user }}"
-
-        - name: Set deploy key permissions
-          file:
-            path: "{{ ssh_key_path }}"
-            mode: '0600'
+        # Copy pre-generated dotfiles deploy key from host to VM
+        # The key at ~/.ssh/dotfiles_deploy_key should already be added to GitHub
+        - name: Copy dotfiles deploy key (private)
+          copy:
+            src: "{{ dotfiles_deploy_key_src }}"
+            dest: "{{ ssh_key_path }}"
             owner: "{{ ansible_user }}"
             group: "{{ ansible_user }}"
+            mode: '0600'
 
-        - name: Display public deploy key
-          shell: cat {{ ssh_pub_key_path }}
-          register: deploy_key_output
-          become_user: "{{ ansible_user }}"
-          changed_when: false
-
-        - name: Deploy key setup instructions
-          debug:
-            msg: |
-              ═══════════════════════════════════════════════════════════════
-              ⚠️  MANUAL STEP REQUIRED: Add Deploy Key to GitHub ⚠️
-              ═══════════════════════════════════════════════════════════════
-
-              Copy the key below and add it to your GitHub repository:
-
-              {{ deploy_key_output.stdout }}
-
-              Steps:
-              1. Go to: https://github.com/maxrantil/dotfiles/settings/keys
-              2. Click "Add deploy key"
-              3. Title: vm-{{ ansible_hostname }}-deploy-key
-              4. Paste the key above
-              5. ✓ Check "Allow write access" if needed for push operations
-              6. Click "Add key"
-
-              After adding the deploy key, dotfiles will be accessible from this VM.
-              ═══════════════════════════════════════════════════════════════
+        - name: Copy dotfiles deploy key (public)
+          copy:
+            src: "{{ dotfiles_deploy_key_pub_src }}"
+            dest: "{{ ssh_pub_key_path }}"
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0644'
 
         - name: Add GitHub to known hosts
           known_hosts:
