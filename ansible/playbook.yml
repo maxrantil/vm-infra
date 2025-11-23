@@ -165,6 +165,28 @@
           args:
             creates: /usr/local/bin/starship
 
+        # Install Claude Code CLI
+        - name: Check if Claude Code is installed
+          stat:
+            path: "{{ user_home }}/.local/bin/claude"
+          register: claude_installed
+
+        - name: Download Claude Code installer
+          get_url:
+            url: https://claude.ai/install.sh
+            dest: /tmp/claude-install.sh
+            mode: '0755'
+          when: not claude_installed.stat.exists
+
+        - name: Install Claude Code
+          shell: /tmp/claude-install.sh
+          become_user: "{{ ansible_user }}"
+          args:
+            creates: "{{ user_home }}/.local/bin/claude"
+          when: not claude_installed.stat.exists
+          environment:
+            HOME: "{{ user_home }}"
+
         # Install LibreWolf browser for VMs
         # Updated method: LibreWolf now uses extrepo instead of manual GPG keys
         # Reference: https://librewolf.net/installation/debian/
