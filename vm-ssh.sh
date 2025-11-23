@@ -14,6 +14,9 @@ NC='\033[0m' # No Color
 
 VM_NAME="$1"
 
+# Get the directory where this script is located (resolve symlinks)
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+
 # Function to list available VMs
 list_vms() {
     echo -e "${BLUE}Available VMs:${NC}"
@@ -68,7 +71,7 @@ list_vms() {
 #####################################
 get_vm_username() {
     local vm_name="$1"
-    local terraform_dir="terraform"
+    local terraform_dir="${SCRIPT_DIR}/terraform"
     local original_workspace
     local username
 
