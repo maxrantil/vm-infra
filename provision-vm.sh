@@ -16,6 +16,7 @@ TEST_MODE="${TEST_MODE:-0}"
 # Parse arguments
 DOTFILES_LOCAL_PATH=""
 MINIMAL_TEST=0
+KEEP_ON_FAILURE=0
 POSITIONAL_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -23,7 +24,7 @@ while [[ $# -gt 0 ]]; do
         --test-dotfiles)
             if [ -z "${2:-}" ]; then
                 echo -e "${RED}[ERROR] --test-dotfiles flag requires a path argument${NC}" >&2
-                echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--minimal-test] [--dry-run]" >&2
+                echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--minimal-test] [--dry-run] [--keep-on-failure]" >&2
                 exit 1
             fi
             DOTFILES_LOCAL_PATH="$2"
@@ -37,9 +38,13 @@ while [[ $# -gt 0 ]]; do
             TEST_MODE=1
             shift
             ;;
+        --keep-on-failure)
+            KEEP_ON_FAILURE=1
+            shift
+            ;;
         -*)
             echo -e "${RED}[ERROR] Unknown flag: $1${NC}" >&2
-            echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--minimal-test] [--dry-run]" >&2
+            echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--minimal-test] [--dry-run] [--keep-on-failure]" >&2
             exit 1
             ;;
         *)
@@ -55,7 +60,7 @@ set -- "${POSITIONAL_ARGS[@]}"
 # Require VM name and username
 if [ -z "${1:-}" ]; then
     echo -e "${RED}[ERROR] Missing required argument: vm-name${NC}" >&2
-    echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--minimal-test] [--dry-run]" >&2
+    echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--minimal-test] [--dry-run] [--keep-on-failure]" >&2
     echo "" >&2
     echo "Example: $0 work-vm developer 4096 2" >&2
     exit 1
@@ -63,7 +68,7 @@ fi
 
 if [ -z "${2:-}" ]; then
     echo -e "${RED}[ERROR] Missing required argument: username${NC}" >&2
-    echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--minimal-test] [--dry-run]" >&2
+    echo "Usage: $0 <vm-name> <username> [memory] [vcpus] [--test-dotfiles <path>] [--minimal-test] [--dry-run] [--keep-on-failure]" >&2
     echo "" >&2
     echo "Example: $0 work-vm developer 4096 2" >&2
     exit 1
@@ -119,10 +124,17 @@ VM_CREATED=false
 cleanup_on_failure() {
     local exit_code=$?
     if [ $exit_code -ne 0 ] && [ "$VM_CREATED" = true ]; then
-        echo "" >&2
-        echo -e "${YELLOW}[WARNING] Provisioning failed, cleaning up VM...${NC}" >&2
-        cd "$TERRAFORM_DIR" && terraform destroy -auto-approve "${TERRAFORM_VARS[@]}" 2> /dev/null || true
-        echo -e "${GREEN}[CLEANUP] VM resources destroyed${NC}" >&2
+        if [ "$KEEP_ON_FAILURE" = 1 ]; then
+            echo "" >&2
+            echo -e "${YELLOW}[INFO] Provisioning failed but --keep-on-failure set, preserving VM${NC}" >&2
+            echo -e "${YELLOW}       VM accessible at: ssh -i ~/.ssh/vm_key $VM_USERNAME@$VM_IP${NC}" >&2
+            echo -e "${YELLOW}       To destroy later: ./destroy-vm.sh $VM_NAME${NC}" >&2
+        else
+            echo "" >&2
+            echo -e "${YELLOW}[WARNING] Provisioning failed, cleaning up VM...${NC}" >&2
+            cd "$TERRAFORM_DIR" && terraform destroy -auto-approve "${TERRAFORM_VARS[@]}" 2> /dev/null || true
+            echo -e "${GREEN}[CLEANUP] VM resources destroyed${NC}" >&2
+        fi
     fi
 }
 
@@ -330,60 +342,9 @@ fi
 
 echo ""
 if [ -n "$DOTFILES_LOCAL_PATH" ]; then
-    # Using local dotfiles, GitHub deploy key not needed
-    echo -e "${YELLOW}========================================${NC}"
-    echo -e "${YELLOW}  ℹ️  Deploy Key Setup Skipped${NC}"
-    echo -e "${YELLOW}========================================${NC}"
-    echo ""
-    echo "Deploy key setup skipped (using local dotfiles from $DOTFILES_LOCAL_PATH)"
-    echo "Deploy keys are only needed when cloning dotfiles from GitHub."
-    echo ""
+    echo "Dotfiles: Installed from local path ($DOTFILES_LOCAL_PATH)"
 else
-    # Regular mode: prompt for deploy key
-    echo -e "${YELLOW}========================================${NC}"
-    echo -e "${YELLOW}  📋 DEPLOY KEY SETUP REQUIRED${NC}"
-    echo -e "${YELLOW}========================================${NC}"
-    echo ""
-
-    # Extract deploy key from VM
-    DEPLOY_KEY=$(ssh -i ~/.ssh/vm_key "$VM_USERNAME@$VM_IP" 'cat ~/.ssh/id_ed25519.pub' 2> /dev/null)
-
-    if [ -n "$DEPLOY_KEY" ]; then
-        echo "To complete dotfiles installation, add this deploy key to GitHub:"
-        echo ""
-        echo -e "${GREEN}$DEPLOY_KEY${NC}"
-        echo ""
-        echo "Steps:"
-        echo "  1. Open: https://github.com/maxrantil/dotfiles/settings/keys"
-        echo "  2. Click 'Add deploy key'"
-        echo "  3. Title: ${VM_NAME}-deploy-key"
-        echo "  4. Paste the key above"
-        echo "  5. ✓ Check 'Allow write access' (if needed)"
-        echo "  6. Click 'Add key'"
-        echo ""
-        echo -e "${YELLOW}Would you like to pause here to add the deploy key?${NC}"
-        echo "Press ENTER after adding the key, or type 'skip' to continue without dotfiles:"
-        read -r DEPLOY_KEY_RESPONSE
-
-        if [ "$DEPLOY_KEY_RESPONSE" != "skip" ]; then
-            echo ""
-            echo -e "${YELLOW}Re-running Ansible to install dotfiles...${NC}"
-            if ansible-playbook -i inventory.ini "$PLAYBOOK"; then
-                echo -e "${GREEN}✓ Dotfiles installation complete${NC}"
-            else
-                echo -e "${RED}⚠ Dotfiles installation failed - you can retry manually:${NC}" >&2
-                echo "  cd ansible && ansible-playbook -i inventory.ini $PLAYBOOK" >&2
-            fi
-        else
-            echo -e "${YELLOW}⚠ Skipping dotfiles installation${NC}"
-            echo "To install dotfiles later:"
-            echo "  1. Add deploy key to GitHub (see above)"
-            echo "  2. Run: cd ansible && ansible-playbook -i inventory.ini $PLAYBOOK"
-        fi
-    else
-        echo -e "${RED}⚠ Could not retrieve deploy key from VM${NC}" >&2
-        echo "You can retrieve it manually: ssh -i ~/.ssh/vm_key $VM_USERNAME@$VM_IP 'cat ~/.ssh/id_ed25519.pub'" >&2
-    fi
+    echo "Dotfiles: Installed from GitHub (using pre-generated deploy key)"
 fi
 
 echo ""
