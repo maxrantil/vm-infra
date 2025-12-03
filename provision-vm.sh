@@ -235,13 +235,13 @@ while IFS= read -r line; do
 
     if [[ "$vm_state" == "running" && -n "$vm_name" && "$vm_name" != "-" ]]; then
         # Get memory allocation for this VM in KiB, convert to MB
-        vm_mem_kib=$(sudo virsh dominfo "$vm_name" 2>/dev/null | awk '/Used memory/ {print $3}')
+        vm_mem_kib=$(sudo virsh dominfo "$vm_name" 2> /dev/null | awk '/Used memory/ {print $3}')
         if [[ -n "$vm_mem_kib" ]]; then
             vm_mem_mb=$((vm_mem_kib / 1024))
             RUNNING_VM_MEM_MB=$((RUNNING_VM_MEM_MB + vm_mem_mb))
         fi
     fi
-done < <(sudo virsh list --all 2>/dev/null)
+done < <(sudo virsh list --all 2> /dev/null)
 
 # Calculate if we have enough memory for the new VM
 # We need: requested memory + ~1GB safety buffer for host operations
@@ -398,14 +398,16 @@ echo ""
 echo -e "${YELLOW}Step 4: Provisioning with Ansible...${NC}"
 cd "$ANSIBLE_DIR"
 
-if ! ansible-playbook -i inventory.ini "$PLAYBOOK"; then
+# Use --limit to only provision the new VM, not all VMs in inventory
+# This prevents failures on other VMs from blocking this provisioning
+if ! ansible-playbook -i inventory.ini "$PLAYBOOK" --limit "$VM_IP"; then
     echo "" >&2
     echo -e "${RED}[ERROR] Ansible provisioning failed${NC}" >&2
     echo "" >&2
     echo "VM is accessible but Ansible failed. Check:" >&2
     echo "  1. Ansible logs above for details" >&2
     echo "  2. Manual connection: ssh -i ~/.ssh/vm_key $VM_USERNAME@$VM_IP" >&2
-    echo "  3. Retry: cd ansible && ansible-playbook -i inventory.ini $PLAYBOOK" >&2
+    echo "  3. Retry: cd ansible && ansible-playbook -i inventory.ini $PLAYBOOK --limit $VM_IP" >&2
     exit 1
 fi
 
