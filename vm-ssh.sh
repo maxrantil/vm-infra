@@ -101,9 +101,11 @@ get_vm_username() {
     # Switch to VM-specific workspace to access isolated terraform state
     # Each VM has its own workspace (created in provision-vm.sh) to support
     # multiple concurrent VMs without state conflicts. See PR #122 for details.
-    if ! (cd "$terraform_dir" && terraform workspace select "$vm_name" 2> /dev/null); then
+    # Note: Redirect stdout to /dev/null to prevent terraform's colored output
+    # from polluting the username capture (BUG: workspace messages in username)
+    if ! (cd "$terraform_dir" && terraform workspace select "$vm_name" > /dev/null 2>&1); then
         # Workspace selection failed - restore original workspace before returning
-        cd "$terraform_dir" && terraform workspace select "$original_workspace" 2> /dev/null
+        cd "$terraform_dir" && terraform workspace select "$original_workspace" > /dev/null 2>&1
         return 1
     fi
 
@@ -115,7 +117,7 @@ get_vm_username() {
     # Validate extraction succeeded
     if [ $extract_status -ne 0 ]; then
         # Extraction failed - restore original workspace before returning
-        cd "$terraform_dir" && terraform workspace select "$original_workspace" 2> /dev/null
+        cd "$terraform_dir" && terraform workspace select "$original_workspace" > /dev/null 2>&1
         return 1
     fi
 
@@ -126,12 +128,12 @@ get_vm_username() {
         echo -e "${RED}[ERROR] Invalid username format from terraform state: '$username'${NC}" >&2
         echo "Expected: lowercase letter followed by lowercase letters, digits, underscores, or hyphens (max 32 chars)" >&2
         # Validation failed - restore original workspace before returning
-        cd "$terraform_dir" && terraform workspace select "$original_workspace" 2> /dev/null
+        cd "$terraform_dir" && terraform workspace select "$original_workspace" > /dev/null 2>&1
         return 1
     fi
 
     # Success - restore original workspace before returning username
-    cd "$terraform_dir" && terraform workspace select "$original_workspace" 2> /dev/null
+    cd "$terraform_dir" && terraform workspace select "$original_workspace" > /dev/null 2>&1
 
     echo "$username"
     return 0

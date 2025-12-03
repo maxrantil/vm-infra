@@ -216,6 +216,75 @@ done
 echo -e "${GREEN}[OK] Prerequisites verified${NC}"
 echo ""
 
+# Pre-flight memory check to prevent VM crashes from memory pressure
+echo -e "${YELLOW}Checking available memory...${NC}"
+
+# Get available memory in MB (accounts for buffers/cache)
+AVAILABLE_MEM_MB=$(awk '/MemAvailable/ {printf "%.0f", $2/1024}' /proc/meminfo)
+
+# Calculate memory used by running VMs
+RUNNING_VM_MEM_MB=0
+while IFS= read -r line; do
+    # Skip header line
+    [[ "$line" =~ ^[[:space:]]*Id ]] && continue
+    [[ -z "$line" ]] && continue
+
+    # Extract VM name from running VMs (state must be "running")
+    vm_name=$(echo "$line" | awk '{print $2}')
+    vm_state=$(echo "$line" | awk '{print $3}')
+
+    if [[ "$vm_state" == "running" && -n "$vm_name" && "$vm_name" != "-" ]]; then
+        # Get memory allocation for this VM in KiB, convert to MB
+        vm_mem_kib=$(sudo virsh dominfo "$vm_name" 2>/dev/null | awk '/Used memory/ {print $3}')
+        if [[ -n "$vm_mem_kib" ]]; then
+            vm_mem_mb=$((vm_mem_kib / 1024))
+            RUNNING_VM_MEM_MB=$((RUNNING_VM_MEM_MB + vm_mem_mb))
+        fi
+    fi
+done < <(sudo virsh list --all 2>/dev/null)
+
+# Calculate if we have enough memory for the new VM
+# We need: requested memory + ~1GB safety buffer for host operations
+SAFETY_BUFFER_MB=1024
+
+# Memory available for VMs = Available system memory
+# If requested > available, warn the user
+if [ "$MEMORY" -gt "$AVAILABLE_MEM_MB" ]; then
+    echo -e "${RED}[ERROR] Insufficient memory for VM${NC}" >&2
+    echo "" >&2
+    echo "Requested VM memory: ${MEMORY}MB" >&2
+    echo "Available system memory: ${AVAILABLE_MEM_MB}MB" >&2
+    echo "Memory used by running VMs: ${RUNNING_VM_MEM_MB}MB" >&2
+    echo "" >&2
+    echo "Options:" >&2
+    echo "  1. Reduce VM memory: $0 $VM_NAME $VM_USERNAME $((AVAILABLE_MEM_MB - SAFETY_BUFFER_MB)) $VCPUS" >&2
+    echo "  2. Stop other VMs: sudo virsh shutdown <vm-name>" >&2
+    echo "  3. Close memory-heavy applications on host" >&2
+    exit 1
+fi
+
+# Warn if we're cutting it close (less than safety buffer remaining)
+REMAINING_AFTER_VM=$((AVAILABLE_MEM_MB - MEMORY))
+if [ "$REMAINING_AFTER_VM" -lt "$SAFETY_BUFFER_MB" ]; then
+    echo -e "${YELLOW}[WARNING] Low memory condition detected${NC}"
+    echo "  Requested VM memory: ${MEMORY}MB"
+    echo "  Available system memory: ${AVAILABLE_MEM_MB}MB"
+    echo "  Memory after VM creation: ${REMAINING_AFTER_VM}MB"
+    echo "  Running VMs using: ${RUNNING_VM_MEM_MB}MB"
+    echo ""
+    echo -e "${YELLOW}  This may cause other VMs to crash due to memory pressure.${NC}"
+    echo -e "${YELLOW}  Consider stopping unused VMs or reducing memory allocation.${NC}"
+    echo ""
+    read -r -p "Continue anyway? [y/N] " response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        echo "Aborted."
+        exit 1
+    fi
+fi
+
+echo -e "${GREEN}[OK] Memory check passed (${AVAILABLE_MEM_MB}MB available, ${MEMORY}MB requested)${NC}"
+echo ""
+
 # Step 1: Terraform
 echo -e "${YELLOW}Step 1: Creating VM with Terraform...${NC}"
 cd "$TERRAFORM_DIR"
