@@ -19,4 +19,5 @@ regexes = [
   '''REPLACEME''',
   '''EXAMPLE_.*''',
   '''your-.*-here''',
+  '''662E3CDD6FE329002D0CA5BB40339DD82B12EF16''',  # pragma: allowlist secret (LibreWolf repo signing key fingerprint, public)
 ]
