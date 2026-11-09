@@ -19,6 +19,9 @@
     dotfiles_deploy_key_src: "{{ lookup('env', 'HOME') }}/.ssh/dotfiles_deploy_key"
     dotfiles_deploy_key_pub_src: "{{ lookup('env', 'HOME') }}/.ssh/dotfiles_deploy_key.pub"
 
+    # LibreWolf apt repository signing key (LibreWolf Maintainers <gpg@librewolf.net>)
+    librewolf_key_fingerprint: "662E3CDD6FE329002D0CA5BB40339DD82B12EF16"  # pragma: allowlist secret (public key fingerprint)
+
     # Dotfiles repository and directory
     dotfiles_repo: "git@github.com:maxrantil/dotfiles.git"
     dotfiles_dir: "{{ user_home }}/.dotfiles"
@@ -188,18 +191,44 @@
             HOME: "{{ user_home }}"
 
         # Install LibreWolf browser for VMs
-        # Updated method: LibreWolf now uses extrepo instead of manual GPG keys
-        # Reference: https://librewolf.net/installation/debian/
-        - name: Install extrepo package
-          apt:
-            name: extrepo
-            state: present
-            update_cache: yes
+        # Repo added directly (not via extrepo): extrepo 0.9 on Ubuntu 22.04 can
+        # no longer validate the extrepo-data index signature. The signing key
+        # is pinned by fingerprint; it matches both repo.librewolf.net/pubkey.gpg
+        # and the key in Debian's extrepo-data (repos/debian/librewolf.yaml).
+        - name: Create apt keyrings directory
+          file:
+            path: /etc/apt/keyrings
+            state: directory
+            mode: '0755'
 
-        - name: Enable LibreWolf repository via extrepo
-          command: extrepo enable librewolf
+        - name: Download LibreWolf repository signing key
+          get_url:
+            url: https://repo.librewolf.net/pubkey.gpg
+            dest: /etc/apt/keyrings/librewolf.asc
+            mode: '0644'
+
+        - name: Verify LibreWolf signing key fingerprint
+          shell: >-
+            set -o pipefail &&
+            gpg --show-keys --with-colons /etc/apt/keyrings/librewolf.asc
+            | awk -F: '/^fpr/ {print $10; exit}'
           args:
-            creates: /etc/apt/sources.list.d/extrepo_librewolf.sources
+            executable: /bin/bash
+          register: librewolf_key_fpr
+          changed_when: false
+          failed_when: librewolf_key_fpr.stdout != librewolf_key_fingerprint
+
+        - name: Add LibreWolf apt repository
+          copy:
+            dest: /etc/apt/sources.list.d/librewolf.sources
+            mode: '0644'
+            content: |
+              Types: deb
+              URIs: https://repo.librewolf.net
+              Suites: librewolf
+              Components: main
+              Architectures: amd64
+              Signed-By: /etc/apt/keyrings/librewolf.asc
 
         - name: Update apt cache after adding LibreWolf repository
           apt:
