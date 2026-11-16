@@ -136,6 +136,10 @@ resource "libvirt_domain" "vm" {
   memory = var.memory
   vcpu   = var.vcpus
 
+  cpu {
+    mode = "host-passthrough"
+  }
+
   # NOTE: cloudinit attribute removed due to provider bug (see workaround above)
   # Native approach would be: cloudinit = libvirt_cloudinit_disk.commoninit.id
   # Using explicit disk attachment instead as part of the workaround
